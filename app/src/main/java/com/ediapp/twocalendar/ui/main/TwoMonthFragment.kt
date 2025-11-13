@@ -9,8 +9,13 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,15 +31,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.YearMonth
 
+
 @Composable
-fun TwoMonthScreen(modifier: Modifier = Modifier) {
+fun TwoMonthFragment(modifier: Modifier = Modifier) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
 
     val holidays = mapOf(
@@ -49,18 +57,23 @@ fun TwoMonthScreen(modifier: Modifier = Modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            Button(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
-                Text(text = "이전달")
-            }
-            Text(text = "${firstMonth.year}-${firstMonth.monthValue}", fontSize = 24.sp)
-            Button(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
-                Text(text = "이번달")
+            Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
+                }
+                IconButton(onClick = { baseMonth = YearMonth.now() }) {
+                    Icon(painter = painterResource(id = R.drawable.dot), contentDescription = "이번달", modifier = Modifier.size(15.dp))
+                }
+                IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
+                    Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
+                }
             }
         }
 
-        Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+//        Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
         MonthCalendar(yearMonth = firstMonth, holidays = holidays)
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -80,7 +93,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
     val today = LocalDate.now()
     val primaryColor = MaterialTheme.colorScheme.primary
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
         // Header
         Row(modifier = Modifier.fillMaxWidth()) {
             val weekDays = listOf("일", "월", "화", "수", "목", "금", "토")
@@ -148,7 +161,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                                verticalArrangement = Arrangement.Top
                             ) {
                                 val color = when {
                                     isToday -> primaryColor

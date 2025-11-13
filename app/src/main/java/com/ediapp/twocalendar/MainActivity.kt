@@ -46,7 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ediapp.twocalendar.ui.main.TodayFragment
-import com.ediapp.twocalendar.ui.main.TwoMonthScreen
+import com.ediapp.twocalendar.ui.main.TwoMonthFragment
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
 import kotlinx.coroutines.launch
 
@@ -68,7 +68,7 @@ fun MainScreenWithTopBar() {
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("1+1 달", "오늘", )
+    val tabTitles = listOf("1+1 달", "오늘")
     val pagerState = rememberPagerState { tabTitles.size }
 
     Scaffold(
@@ -154,12 +154,13 @@ fun MainScreenWithTopBar() {
             state = pagerState,
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize(),
-            userScrollEnabled = false
+                .fillMaxWidth(),
+            userScrollEnabled = false,
+            verticalAlignment = Alignment.Top
         ) { page ->
             when (page) {
+                0 -> TwoMonthFragment(modifier = Modifier.fillMaxHeight())
                 1 -> TodayFragment()
-                0 -> TwoMonthScreen()
             }
         }
     }
