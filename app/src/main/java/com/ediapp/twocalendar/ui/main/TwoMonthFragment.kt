@@ -65,7 +65,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
                 }
                 IconButton(onClick = { baseMonth = YearMonth.now() }) {
-                    Icon(painter = painterResource(id = R.drawable.dot), contentDescription = "이번달", modifier = Modifier.size(15.dp))
+                    Icon(painter = painterResource(id = R.drawable.dot), contentDescription = "이번달", modifier = Modifier.size(15.dp), tint = Color.Unspecified)
                 }
                 IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
                     Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
