@@ -24,6 +24,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -47,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -171,6 +173,7 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("1+1 달", "오늘")
     val pagerState = rememberPagerState { tabTitles.size }
+    val view = LocalView.current
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -211,8 +214,12 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Handle help action */ }) {
-                        Icon(Icons.Default.Info, contentDescription = "도움말")
+                    IconButton(onClick = { 
+                        coroutineScope.launch {
+                            captureAndShare(view, context)
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "공유")
                     }
                 }
             )

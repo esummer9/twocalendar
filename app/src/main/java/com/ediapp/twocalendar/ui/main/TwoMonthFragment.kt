@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,13 +65,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
         fetchHolidaysForYear(baseMonth.plusMonths(1).year)
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { /*TODO*/ }) {
-                Icon(Icons.Filled.Share, contentDescription = "공유")
-            }
-        }
-    ) {
+    Scaffold {
         Column(modifier = modifier.padding(it), verticalArrangement = Arrangement.Top) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
