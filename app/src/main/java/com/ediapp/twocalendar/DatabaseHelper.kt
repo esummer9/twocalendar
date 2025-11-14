@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import java.util.Locale
+import androidx.core.database.sqlite.transaction
 
 /**
  * Database helper class for managing the application's SQLite database.
@@ -35,6 +36,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         const val COL_CATEGORY = "category"
         const val COL_TYPE = "data_type"
         const val COL_DATA_KEY = "data_key"
+        const val COL_APPLY_DT = "apply_dt"
         const val COL_TITLE = "title"
         const val COL_ALIAS = "alias"
         const val COL_VALUE = "value"
@@ -50,8 +52,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COL_SOURCE VARCHAR(50) NOT NULL,
                 $COL_CATEGORY VARCHAR(50) NOT NULL,
-                $COL_TYPE VARCHAR(50) NOT NULL,
-                $COL_DATA_KEY VARCHAR(50) NOT NULL,
+                $COL_TYPE VARCHAR(50) DEFAULT NULL,
+                $COL_DATA_KEY VARCHAR(50) DEFAULT NULL,
+                $COL_APPLY_DT VARCHAR(50) DEFAULT NULL,
                 $COL_TITLE VARCHAR(100),
                 $COL_ALIAS VARCHAR(100),
                 $COL_VALUE INTEGER DEFAULT 0,
@@ -73,21 +76,20 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
     override fun onCreate(db: SQLiteDatabase) {
         try {
             // Begin transaction
-            db.beginTransaction()
+            db.transaction {
 
-            try {
-                // Create table
-                db.execSQL(SQL_CREATE_TABLE)
+                try {
+                    // Create table
+                    execSQL(SQL_CREATE_TABLE)
 
-                // Insert initial data
-                insertInitialData(db)
+                    // Insert initial data
+                    insertInitialData(this)
 
-                // Mark transaction as successful
-                db.setTransactionSuccessful()
-                Log.d(TAG, "Database created successfully")
-            } finally {
-                // End transaction
-                db.endTransaction()
+                    // Mark transaction as successful
+                    Log.d(TAG, "Database created successfully")
+                } finally {
+                    // End transaction
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error creating database", e)
@@ -127,25 +129,24 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
      */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         Log.w(TAG, "Upgrading database from version $oldVersion to $newVersion")
-        
+
         try {
-            db.beginTransaction()
-            
-            try {
-                // Example of database migration (add more cases as needed)
-                when (oldVersion) {
-                    1 -> {
-                        // Upgrade from version 1 to 2
-                        // Add your migration code here
-                        Log.d(TAG, "Migrating database from version 1 to 2")
+            db.transaction {
+
+                try {
+                    // Example of database migration (add more cases as needed)
+                    when (oldVersion) {
+                        1 -> {
+                            // Upgrade from version 1 to 2
+                            // Add your migration code here
+                            Log.d(TAG, "Migrating database from version 1 to 2")
+                        }
+                        // Add more cases for future versions
                     }
-                    // Add more cases for future versions
+
+                    Log.d(TAG, "Database upgraded successfully to version $newVersion")
+                } finally {
                 }
-                
-                db.setTransactionSuccessful()
-                Log.d(TAG, "Database upgraded successfully to version $newVersion")
-            } finally {
-                db.endTransaction()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error upgrading database", e)
@@ -153,5 +154,72 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
             // or notifying the user about the error
             throw RuntimeException("Failed to upgrade database", e)
         }
+    }
+
+    fun addDay(source: String, category: String, type: String, dataKey: String, title: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SOURCE, source)
+            put(COL_CATEGORY, category)
+            put(COL_TYPE, type)
+            put(COL_DATA_KEY, "category-${dataKey}")
+            val dateParts = "${dataKey.take(4)}-${dataKey.take(6).drop(4)}-${dataKey.drop(6)}"
+            put(COL_APPLY_DT, dateParts)
+            put(COL_TITLE, title)
+        }
+
+        Log.d(TAG, "Adding day: $values")
+
+        db.insertWithOnConflict(TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun countDaysByCategoryAndYear(category: String, year: Int): Int {
+        val db = this.readableDatabase
+        val query = "SELECT COUNT(*) FROM $TABLE_NAME WHERE $COL_CATEGORY = ? AND $COL_DATA_KEY LIKE ?"
+        val cursor = db.rawQuery(query, arrayOf(category, "category-$year%"))
+        var count = 0
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0)
+        }
+        cursor.close()
+        return count
+    }
+
+    fun getHolidaysForMonth(yearMonth: java.time.YearMonth): Map<java.time.LocalDate, String> {
+        val db = this.readableDatabase
+        val holidays = mutableMapOf<java.time.LocalDate, String>()
+        val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
+
+        val cursor = db.query(
+            TABLE_NAME,
+            arrayOf(COL_APPLY_DT, COL_TITLE),
+            "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
+            arrayOf("holiday", "$monthStr%"),
+            null, null, null
+        )
+
+        val dateColumnIndex = cursor.getColumnIndex(COL_APPLY_DT)
+        val titleColumnIndex = cursor.getColumnIndex(COL_TITLE)
+
+        if (dateColumnIndex == -1 || titleColumnIndex == -1) {
+            Log.e(TAG, "One or more columns not found in the cursor.")
+            cursor.close()
+            return emptyMap()
+        }
+
+        while (cursor.moveToNext()) {
+            val dateStr = cursor.getString(dateColumnIndex)
+            val title = cursor.getString(titleColumnIndex)
+            if (dateStr != null && title != null) {
+                try {
+                    val date = java.time.LocalDate.parse(dateStr)
+                    holidays[date] = title
+                } catch (e: java.time.format.DateTimeParseException) {
+                    Log.e(TAG, "Error parsing date: $dateStr", e)
+                }
+            }
+        }
+        cursor.close()
+        return holidays
     }
 }

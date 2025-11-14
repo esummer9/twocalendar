@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,57 +35,90 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.YearMonth
 
 
 @Composable
-fun TwoMonthFragment(modifier: Modifier = Modifier) {
+fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) -> Unit) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
+    val context = LocalContext.current
+    val dbHelper = remember { DatabaseHelper(context) }
 
-    val holidays = mapOf(
-        LocalDate.of(2025, 11, 1) to "내생일",
-        LocalDate.of(2025, 12, 25) to "성탄절"
-    )
+    val holidays = remember(baseMonth) {
+        val firstMonthHolidays = dbHelper.getHolidaysForMonth(baseMonth)
+        val secondMonthHolidays = dbHelper.getHolidaysForMonth(baseMonth.plusMonths(1))
+        firstMonthHolidays + secondMonthHolidays
+    }
 
     val firstMonth = baseMonth
     val secondMonth = baseMonth.plusMonths(1)
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
-                }
-                IconButton(onClick = { baseMonth = YearMonth.now() }) {
-                    Icon(painter = painterResource(id = R.drawable.dot), contentDescription = "이번달", modifier = Modifier.size(15.dp), tint = Color.Unspecified)
-                }
-                IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
-                    Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
-                }
+    LaunchedEffect(baseMonth) {
+        fetchHolidaysForYear(baseMonth.year)
+        fetchHolidaysForYear(baseMonth.plusMonths(1).year)
+    }
+
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = { /*TODO*/ }) {
+                Icon(Icons.Filled.Share, contentDescription = "공유")
             }
         }
+    ) {
+        Column(modifier = modifier.padding(it), verticalArrangement = Arrangement.Top) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = "${firstMonth.year}년 ${firstMonth.monthValue}월",
+                    modifier = Modifier.padding(vertical = 2.dp),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
+                    }
+                    IconButton(onClick = { baseMonth = YearMonth.now() }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.dot),
+                            contentDescription = "이번달",
+                            modifier = Modifier.size(15.dp),
+                            tint = Color.Unspecified
+                        )
+                    }
+                    IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
+                        Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
+                    }
+                }
+            }
 
 //        Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        MonthCalendar(yearMonth = firstMonth, holidays = holidays)
+            MonthCalendar(yearMonth = firstMonth, holidays = holidays)
 
-        Spacer(modifier = Modifier.height(4.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(4.dp))
 
-        Text(text = "${secondMonth.year}년 ${secondMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        MonthCalendar(yearMonth = secondMonth, holidays = holidays)
+            Text(
+                text = "${secondMonth.year}년 ${secondMonth.monthValue}월",
+                modifier = Modifier.padding(vertical = 2.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            MonthCalendar(yearMonth = secondMonth, holidays = holidays)
+        }
     }
 }
 
