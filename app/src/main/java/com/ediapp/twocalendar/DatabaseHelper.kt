@@ -6,7 +6,8 @@ import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
-import java.util.Locale
+import java.time.LocalDate
+import java.time.LocalTime
 import androidx.core.database.sqlite.transaction
 
 /**
@@ -155,6 +156,20 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
             throw RuntimeException("Failed to upgrade database", e)
         }
     }
+    
+    fun addSchedule(date: LocalDate, time: LocalTime, title: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SOURCE, "manual")
+            put(COL_CATEGORY, "personal")
+            put(COL_TYPE, "date")
+            put(COL_DATA_KEY, "personal-$date")
+            put(COL_APPLY_DT, date.toString())
+            put(COL_TITLE, title)
+            put(COL_ALIAS, title)
+        }
+        db.insertWithOnConflict(TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    }
 
     fun addDay(source: String, category: String, type: String, dataKey: String, title: String) {
         val db = this.writableDatabase
@@ -185,41 +200,49 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         return count
     }
 
-    fun getHolidaysForMonth(yearMonth: java.time.YearMonth): Map<java.time.LocalDate, String> {
+    fun getDaysForCatetoryMonth(yearMonth: java.time.YearMonth, categorys: List<String>): Map<java.time.LocalDate, String> {
         val db = this.readableDatabase
         val holidays = mutableMapOf<java.time.LocalDate, String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
 
-        val cursor = db.query(
-            TABLE_NAME,
-            arrayOf(COL_APPLY_DT, COL_TITLE),
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
-            arrayOf("holiday", "$monthStr%"),
-            null, null, null
-        )
+        categorys.forEach { category ->
+            val cursor = db.query(
+                TABLE_NAME,
+                arrayOf(COL_APPLY_DT, COL_TITLE),
+                "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
+                arrayOf(category, "$monthStr%"),
+                null, null, null
+            )
 
-        val dateColumnIndex = cursor.getColumnIndex(COL_APPLY_DT)
-        val titleColumnIndex = cursor.getColumnIndex(COL_TITLE)
+            val dateColumnIndex = cursor.getColumnIndex(COL_APPLY_DT)
+            val titleColumnIndex = cursor.getColumnIndex(COL_TITLE)
 
-        if (dateColumnIndex == -1 || titleColumnIndex == -1) {
-            Log.e(TAG, "One or more columns not found in the cursor.")
-            cursor.close()
-            return emptyMap()
-        }
+            if (dateColumnIndex == -1 || titleColumnIndex == -1) {
+                Log.e(TAG, "One or more columns not found in the cursor.")
+                cursor.close()
+                return emptyMap()
+            }
 
-        while (cursor.moveToNext()) {
-            val dateStr = cursor.getString(dateColumnIndex)
-            val title = cursor.getString(titleColumnIndex)
-            if (dateStr != null && title != null) {
-                try {
-                    val date = java.time.LocalDate.parse(dateStr)
-                    holidays[date] = title
-                } catch (e: java.time.format.DateTimeParseException) {
-                    Log.e(TAG, "Error parsing date: $dateStr", e)
+            while (cursor.moveToNext()) {
+                val dateStr = cursor.getString(dateColumnIndex)
+                val title = cursor.getString(titleColumnIndex)
+                if (dateStr != null && title != null) {
+                    try {
+                        val date = java.time.LocalDate.parse(dateStr)
+//                        holidays[date] = title
+                        if ( holidays[date] == null)
+                            holidays[date] = "${category}|${title}"
+                        else
+                            holidays[date] += "\n${category}|${title}"
+                    } catch (e: java.time.format.DateTimeParseException) {
+                        Log.e(TAG, "Error parsing date: $dateStr", e)
+                    }
                 }
             }
+            cursor.close()
         }
-        cursor.close()
+
+        Log.d(TAG, "Holidays: $holidays")
         return holidays
     }
 }

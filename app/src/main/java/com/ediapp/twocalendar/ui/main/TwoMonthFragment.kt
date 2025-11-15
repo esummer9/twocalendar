@@ -1,5 +1,7 @@
 package com.ediapp.twocalendar.ui.main
 
+import android.util.Log
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,12 +15,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +41,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.R
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 
 
@@ -51,11 +61,22 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
 
+    var showScheduleDialog by remember { mutableStateOf(false) }
+    var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
+
+    val onDateLongClick = { date: LocalDate ->
+        selectedDateForDialog = date
+        showScheduleDialog = true
+    }
+
     val holidays = remember(baseMonth) {
-        val firstMonthHolidays = dbHelper.getHolidaysForMonth(baseMonth)
-        val secondMonthHolidays = dbHelper.getHolidaysForMonth(baseMonth.plusMonths(1))
+        val firstMonthHolidays = dbHelper.getDaysForCatetoryMonth(baseMonth, listOf("holiday", "personal"))
+        val secondMonthHolidays = dbHelper.getDaysForCatetoryMonth(baseMonth.plusMonths(1), listOf("holiday", "personal"))
         firstMonthHolidays + secondMonthHolidays
     }
+
+
+    Log.d("holidays", holidays.toString())
 
     val firstMonth = baseMonth
     val secondMonth = baseMonth.plusMonths(1)
@@ -97,7 +118,8 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
             }
 
 //        Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            MonthCalendar(yearMonth = firstMonth, holidays = holidays)
+
+            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick)
 
             Spacer(modifier = Modifier.height(4.dp))
             HorizontalDivider()
@@ -109,13 +131,67 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
-            MonthCalendar(yearMonth = secondMonth, holidays = holidays)
+            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick)
         }
+    }
+
+    if (showScheduleDialog && selectedDateForDialog != null) {
+        AddScheduleDialog(
+            date = selectedDateForDialog!!,
+            onDismiss = { showScheduleDialog = false },
+            onConfirm = { title, time ->
+                dbHelper.addSchedule(selectedDateForDialog!!, time, title)
+                showScheduleDialog = false
+            }
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifier: Modifier = Modifier) {
+fun AddScheduleDialog(
+    date: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (title: String, time: LocalTime) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(is24Hour = false)
+    var title by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "${date.year}년 ${date.monthValue}월 ${date.dayOfMonth}일") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("제목") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("시간 선택")
+                TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val time = LocalTime.of(timePickerState.hour, timePickerState.minute)
+                onConfirm(title, time)
+            }) {
+                Text("확인")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
+
+
+@Composable
+fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifier: Modifier = Modifier, onDateLongClick: (LocalDate) -> Unit) {
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = yearMonth.atDay(1)
     val startDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // Sunday = 0, Monday = 1, ...
@@ -158,10 +234,31 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                         val holiday = holidays[date]
                         val dayOfWeek = (dayIndex - 1) % 7 // 0 for Sunday, 6 for Saturday
 
+                        /**
+                         * 공휴일, 국경일 : 빨강색
+                         * 내일정 : 오렌지
+                         * 공휴일 + 내일정 : 보라색
+                         */
+
+                        var dayColor = Color.Black
+                        if (holiday != null) {
+                            Log.d("holiday", "$date $holiday")
+                            if (holiday?.split("|")?.first()?.startsWith("holiday") == true)
+                                dayColor = Color.Red
+                            else
+                                dayColor = Color(0xFFFFA500)
+                        }
+
+//                        dayColor = if ( holiday?.split("|")?.first()?.startsWith("holiday") == true) Color.Red else Color.Gray
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1.45f)
+                                .pointerInput(date) {
+                                    detectTapGestures(
+                                        onLongPress = { onDateLongClick(date) }
+                                    )
+                                }
                                 .then(
                                     if (isToday) {
                                         Modifier.drawBehind { // This is not a composable function
@@ -175,9 +272,12 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                         Modifier.drawBehind { // This is not a composable function
                                             val margin = 5.dp.toPx()
                                             drawRoundRect(
-                                                color = Color.Red,
+                                                color = dayColor,
                                                 topLeft = Offset(margin, margin),
-                                                size = Size(size.width - (margin * 2), size.height - (margin * 2)),
+                                                size = Size(
+                                                    size.width - (margin * 2),
+                                                    size.height - (margin * 2)
+                                                ),
                                                 cornerRadius = CornerRadius(8f, 8f),
                                                 style = Stroke(width = 1.5.dp.toPx())
                                             )
@@ -194,7 +294,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                             ) {
                                 val color = when {
                                     isToday -> primaryColor
-                                    holiday != null -> Color.Red
+                                    holiday != null -> dayColor
                                     dayOfWeek == 0 -> Color.Red
                                     dayOfWeek == 6 -> Color.Blue
                                     else -> Color.Unspecified
