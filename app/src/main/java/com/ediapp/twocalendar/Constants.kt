@@ -1,5 +1,8 @@
 package com.ediapp.twocalendar
 
+import android.content.Context
+import android.provider.Settings
+
 object Constants {
     data class ApiConfig(
         val baseUrl: String,
@@ -26,3 +29,10 @@ object Constants {
         // 여기에 다른 API 설정을 추가할 수 있습니다.
     )
 }
+
+
+
+fun getAndroidId(context: Context): String {
+    return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+}
+

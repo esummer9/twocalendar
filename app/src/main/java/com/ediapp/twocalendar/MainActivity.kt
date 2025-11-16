@@ -68,8 +68,16 @@ import java.util.Calendar
 class MainActivity : ComponentActivity() {
     private val dbHelper by lazy { DatabaseHelper(this) }
 
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val andorid_id = getAndroidId(this)
+        Log.d(TAG, "Android ID: $andorid_id")
+
         enableEdgeToEdge()
         setContent {
             var isFetching by remember { mutableStateOf(true) }
