@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -89,7 +91,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     }
 
 
-    Log.d("holidays", holidays.toString())
+    Log.d("holidays", "visible:$visible | $holidays ")
 
     val firstMonth = baseMonth
     val secondMonth = baseMonth.plusMonths(1)
@@ -100,7 +102,13 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     }
 
     Scaffold {
-        Column(modifier = modifier.padding(it), verticalArrangement = Arrangement.Top) {
+        val scrollState = rememberScrollState()
+        Column(
+            modifier = modifier
+                .padding(it)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.Top
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -130,9 +138,29 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                 }
             }
 
-//        Text(text = "$'{firstMonth.year}년 $'{firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-
             MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visible)
+            if(visible) {
+                val firstMonthHolidays = holidays.filter { (date, description) ->
+                    date.year == firstMonth.year && date.month == firstMonth.month
+                }.mapNotNull { (date, description) ->
+                    var holidayName = ""
+                    description.split("\n").forEach { row ->
+                        val nm = row.split("|")[1]
+                        holidayName += if(holidayName == "") nm else ",$nm"
+                        Log.d("holiday description", "description: $holidayName")
+                    }
+                    holidayName?.let { date to it }
+                }.sortedBy { it.first.dayOfMonth }
+
+                if (firstMonthHolidays.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        firstMonthHolidays.forEach { (date, holidayName) ->
+                            Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -147,6 +175,32 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                 fontSize = 16.sp
             )
             MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visible)
+
+            if(visible) {
+                val secondMonthHolidays = holidays.filter { (date, description) ->
+                    date.year == secondMonth.year && date.month == secondMonth.month
+                }.mapNotNull { (date, description) ->
+                    var holidayName = ""
+                    description.split("\n").forEach { row ->
+                        val nm = row.split("|")[1]
+                        holidayName += if(holidayName == "") nm else ",$nm"
+                        Log.d("holiday description", "description: $holidayName")
+                    }
+                    holidayName?.let { date to it }
+
+                }.sortedBy { it.first.dayOfMonth }
+
+                if (secondMonthHolidays.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        secondMonthHolidays.forEach { (date, holidayName) ->
+                            Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
         }
     }
 
