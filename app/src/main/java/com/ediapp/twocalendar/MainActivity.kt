@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("날짜 정보를 가져오고 있습니다")
+                            Text("공휴일 정보를 가져오고 있습니다")
                         }
                     }
                 } else {
