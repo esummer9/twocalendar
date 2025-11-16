@@ -147,7 +147,6 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                     description.split("\n").forEach { row ->
                         val nm = row.split("|")[1]
                         holidayName += if(holidayName == "") nm else ",$nm"
-                        Log.d("holiday description", "description: $holidayName")
                     }
                     holidayName?.let { date to it }
                 }.sortedBy { it.first.dayOfMonth }
@@ -184,7 +183,6 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                     description.split("\n").forEach { row ->
                         val nm = row.split("|")[1]
                         holidayName += if(holidayName == "") nm else ",$nm"
-                        Log.d("holiday description", "description: $holidayName")
                     }
                     holidayName?.let { date to it }
 
