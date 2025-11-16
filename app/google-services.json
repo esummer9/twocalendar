@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "780155849909",
+    "project_id": "m-routine",
+    "storage_bucket": "m-routine.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:780155849909:android:f9f0ee9835436a779b42fc",
+        "android_client_info": {
+          "package_name": "com.ediapp.m1routine"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvShk-pcsDo1lwAXQwUXaH2s_peGmycQA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:780155849909:android:f7551510eedfee5f9b42fc",
+        "android_client_info": {
+          "package_name": "com.ediapp.twocalendar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvShk-pcsDo1lwAXQwUXaH2s_peGmycQA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
