@@ -1,7 +1,7 @@
+
 package com.ediapp.twocalendar.ui.main
 
 import android.content.Intent
-import android.util.Log
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -37,8 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -54,10 +54,11 @@ import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 
 
 @Composable
-fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) -> Unit) {
+fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) -> Unit, showScheduleList: Boolean) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
@@ -72,14 +73,27 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
         firstMonthHolidays + secondMonthHolidays
     }
 
+    val scheduleList = remember(holidays) {
+        holidays.entries.flatMap { (date, scheduleString) ->
+            scheduleString.split('\n').mapNotNull { line ->
+                if (line.isNotBlank()) {
+                    val parts = line.split('|', limit = 2)
+                    if (parts.size == 2 && parts[0] == "personal") {
+                        date to parts[1] // pair of date and title
+                    } else null
+                } else null
+            }
+        }.sortedBy { it.first }
+    }
+
     val onDateLongClick = { date: LocalDate ->
         selectedDateForDialog = date
         showScheduleDialog = true
     }
 
     val onDateClick = { date: LocalDate ->
-        val holiday = holidays[date]
-        if (holiday?.split("|")?.first()?.startsWith("personal") == true) {
+        val scheduleString = holidays[date]
+        if (scheduleString?.contains("personal") == true) {
             val intent = Intent(context, PersonalScheduleActivity::class.java).apply {
                 putExtra("year", date.year)
                 putExtra("month", date.monthValue)
@@ -87,9 +101,6 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
             context.startActivity(intent)
         }
     }
-
-
-    Log.d("holidays", holidays.toString())
 
     val firstMonth = baseMonth
     val secondMonth = baseMonth.plusMonths(1)
@@ -100,51 +111,75 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     }
 
     Scaffold {
-        Column(modifier = modifier.padding(it), verticalArrangement = Arrangement.Top) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Text(
-                    text = "${firstMonth.year}년 ${firstMonth.monthValue}월",
-                    modifier = Modifier.padding(vertical = 2.dp),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
-                    }
-                    IconButton(onClick = { baseMonth = YearMonth.now() }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.dot),
-                            contentDescription = "이번달",
-                            modifier = Modifier.size(15.dp),
-                            tint = Color.Unspecified
-                        )
-                    }
-                    IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
-                        Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
+        LazyColumn(modifier = modifier.padding(it), verticalArrangement = Arrangement.Top) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${firstMonth.year}년 ${firstMonth.monthValue}월",
+                        modifier = Modifier.padding(vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
+                        }
+                        IconButton(onClick = { baseMonth = YearMonth.now() }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.dot),
+                                contentDescription = "이번달",
+                                modifier = Modifier.size(15.dp),
+                                tint = Color.Unspecified
+                            )
+                        }
+                        IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
+                            Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
+                        }
                     }
                 }
             }
 
-//        Text(text = "$'{firstMonth.year}년 $'{firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            item {
+                MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
+            }
 
-            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
-            Spacer(modifier = Modifier.height(4.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "${secondMonth.year}년 ${secondMonth.monthValue}월",
-                modifier = Modifier.padding(vertical = 2.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
-            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
+            item {
+                Text(
+                    text = "${secondMonth.year}년 ${secondMonth.monthValue}월",
+                    modifier = Modifier.padding(vertical = 2.dp),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
+            item {
+                MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
+            }
+            if (showScheduleList) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                items(scheduleList) { (date, title) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        val formatter = DateTimeFormatter.ofPattern("MM.dd")
+                        Text(text = date.format(formatter), modifier = Modifier.padding(end = 8.dp))
+                        Text(text = title)
+                    }
+                }
+            }
         }
     }
 
@@ -244,24 +279,22 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                         val date = yearMonth.atDay(dayOfMonth)
                         val isToday = date == today
                         val holiday = holidays[date]
-                        val dayOfWeek = (dayIndex - 1) % 7 // 0 for Sunday, 6 for Saturday
+                        val dayOfWeek = date.dayOfWeek.value % 7 // 0 for Sunday, 6 for Saturday
 
                         /**
                          * 공휴일, 국경일 : 빨강색
                          * 내일정 : 오렌지
                          * 공휴일 + 내일정 : 보라색
                          */
-
-                        var dayColor = Color.Black
-                        if (holiday != null) {
-                            Log.d("holiday", "$date $holiday")
-                            if (holiday?.split("|")?.first()?.startsWith("holiday") == true)
-                                dayColor = Color.Red
-                            else
-                                dayColor = Color(0xFFFFA500)
+                        val dayColor = when {
+                            holiday?.contains("holiday") == true && holiday.contains("personal") == true -> Color(0xFF800080) // Purple
+                            holiday?.contains("holiday") == true -> Color.Red
+                            holiday?.contains("personal") == true -> Color(0xFFFFA500) // Orange
+                            dayOfWeek == 0 -> Color.Red
+                            dayOfWeek == 6 -> Color.Blue
+                            else -> Color.Black
                         }
 
-//                        dayColor = if ( holiday?.split("|")?.first()?.startsWith("holiday") == true) Color.Red else Color.Gray
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -275,52 +308,26 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                 .then(
                                     if (isToday) {
                                         Modifier.drawBehind { // This is not a composable function
-                                            drawCircle(
-                                                color = primaryColor, // Use the color here
-                                                radius = size.minDimension / 2f,
-                                                style = Stroke(width = 1.5.dp.toPx())
-                                            )
-                                        }
-                                    } else if (holiday != null) {
-                                        Modifier.drawBehind { // This is not a composable function
-                                            val margin = 5.dp.toPx()
                                             drawRoundRect(
-                                                color = dayColor,
-                                                topLeft = Offset(margin, margin),
-                                                size = Size(
-                                                    size.width - (margin * 2),
-                                                    size.height - (margin * 2)
-                                                ),
-                                                cornerRadius = CornerRadius(8f, 8f),
-                                                style = Stroke(width = 1.5.dp.toPx())
+                                                color = primaryColor,
+                                                cornerRadius = CornerRadius(8.dp.toPx()),
+                                                style = Stroke(width = 1.dp.toPx())
                                             )
                                         }
-                                    } else {
-                                        Modifier
-                                    }
+                                    } else Modifier
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Top
-                            ) {
-                                val color = when {
-                                    isToday -> primaryColor
-                                    holiday != null -> dayColor
-                                    dayOfWeek == 0 -> Color.Red
-                                    dayOfWeek == 6 -> Color.Blue
-                                    else -> Color.Unspecified
-                                }
-                                Text(text = dayOfMonth.toString(), color = color, fontSize = 16.sp)
-                            }
+                            Text(
+                                text = dayOfMonth.toString(),
+                                textAlign = TextAlign.Center,
+                                color = dayColor,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     } else {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1.45f)
-                        )
+                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1.45f))
                     }
                 }
             }

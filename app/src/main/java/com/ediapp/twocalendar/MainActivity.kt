@@ -41,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -174,6 +176,7 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
     val tabTitles = listOf("1+1 달", "오늘")
     val pagerState = rememberPagerState { tabTitles.size }
     val view = LocalView.current
+    var showScheduleList by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -207,7 +210,12 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { 
+                    IconButton(onClick = {
+                        showScheduleList = !showScheduleList
+                    }) {
+                        Icon(painter = painterResource(id = R.drawable.visible), contentDescription = "보기")
+                    }
+                    IconButton(onClick = {
                         coroutineScope.launch {
                             captureAndShare(view, context)
                         }
@@ -260,7 +268,11 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
             verticalAlignment = Alignment.Top
         ) { page ->
             when (page) {
-                0 -> TwoMonthFragment(modifier = Modifier.fillMaxHeight(), fetchHolidaysForYear = fetchHolidaysForYear)
+                0 -> key(showScheduleList) {
+                    TwoMonthFragment(modifier = Modifier.fillMaxHeight(),
+                        fetchHolidaysForYear = fetchHolidaysForYear,
+                        showScheduleList = showScheduleList)
+                }
                 1 -> TodayFragment()
             }
         }
