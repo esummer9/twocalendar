@@ -156,6 +156,31 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
             throw RuntimeException("Failed to upgrade database", e)
         }
     }
+
+    fun getDistinctScheduleTitles(category: String): List<String> {
+        val db = this.readableDatabase
+        val titles = mutableListOf<String>()
+        val cursor = db.query(
+            TABLE_NAME,
+            arrayOf("DISTINCT $COL_TITLE"),
+            "$COL_CATEGORY = ?",
+            arrayOf(category),
+            null, null, "$COL_TITLE ASC"
+        )
+
+        val titleColumnIndex = cursor.getColumnIndex(COL_TITLE)
+        if (titleColumnIndex == -1) {
+            Log.e(TAG, "Column not found in the cursor.")
+            cursor.close()
+            return emptyList()
+        }
+
+        while (cursor.moveToNext()) {
+            titles.add(cursor.getString(titleColumnIndex))
+        }
+        cursor.close()
+        return titles
+    }
     
     fun addSchedule(date: LocalDate, title: String) {
         val db = this.writableDatabase

@@ -2,6 +2,7 @@ package com.ediapp.twocalendar.ui.main
 
 import android.content.Intent
 import android.util.Log
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,7 +60,12 @@ import java.time.YearMonth
 
 
 @Composable
-fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) -> Unit, visible: Boolean) {
+fun TwoMonthFragment(
+    modifier: Modifier = Modifier,
+    fetchHolidaysForYear: (Int) -> Unit,
+    visible: Boolean,
+    selectedPersonalSchedules: List<String>
+) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
@@ -68,10 +74,31 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
 
-    val holidays = remember(baseMonth, reloadData) {
-        val firstMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("holiday", "personal"))
-        val secondMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("holiday", "personal"))
-        firstMonthHolidays + secondMonthHolidays
+    val holidays = remember(baseMonth, reloadData, selectedPersonalSchedules) {
+        val categories = mutableListOf("holiday")
+        if (selectedPersonalSchedules.isNotEmpty()) {
+            categories.add("personal")
+        }
+        val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
+                dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
+
+        if (selectedPersonalSchedules.isNotEmpty()) {
+            allSchedules.mapValues { (_, descriptions) ->
+                descriptions.split('\n').filter { desc ->
+                    val parts = desc.split('|', limit = 2)
+                    if (parts.size < 2) return@filter false
+                    val category = parts[0]
+                    val title = parts[1]
+                    if (category == "personal") {
+                        title in selectedPersonalSchedules
+                    } else { // holiday
+                        true
+                    }
+                }.joinToString("\n")
+            }.filterValues { it.isNotBlank() }
+        } else {
+            allSchedules
+        }
     }
 
     val onDateLongClick = { date: LocalDate ->
@@ -103,9 +130,29 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
 
     Scaffold {
         val scrollState = rememberScrollState()
+        var offsetX by remember { mutableStateOf(0f) }
         Column(
             modifier = modifier
                 .padding(it)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount
+                        },
+                        onDragEnd = {
+                            when {
+                                offsetX > 150 -> { // Swipe Right
+                                    baseMonth = baseMonth.minusMonths(1)
+                                }
+                                offsetX < -150 -> { // Swipe Left
+                                    baseMonth = baseMonth.plusMonths(1)
+                                }
+                            }
+                            offsetX = 0f
+                        }
+                    )
+                }
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.Top
         ) {

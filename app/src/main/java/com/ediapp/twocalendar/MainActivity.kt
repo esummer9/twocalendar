@@ -8,8 +8,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,13 +20,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -37,11 +43,13 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -102,7 +110,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } else {
-                    MainScreenWithTopBar(fetchHolidaysForYear = { year ->
+                    MainScreenWithTopBar(dbHelper = dbHelper, fetchHolidaysForYear = { year ->
                         lifecycleScope.launch(Dispatchers.IO) {
                             fetchAndSaveHolidays(year)
                         }
@@ -174,16 +182,98 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+fun PersonalScheduleSelectionDialog(
+    allSchedules: List<String>,
+    selectedSchedules: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<String>) -> Unit
+) {
+    var currentSelection by remember { mutableStateOf(selectedSchedules.toSet()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("개인일정 선택") },
+        text = {
+            LazyColumn {
+                items(allSchedules) { schedule ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val newSelection = currentSelection.toMutableSet()
+                                if (schedule in newSelection) {
+                                    newSelection.remove(schedule)
+                                } else {
+                                    newSelection.add(schedule)
+                                }
+                                currentSelection = newSelection
+                            }
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Checkbox(
+                            checked = schedule in currentSelection,
+                            onCheckedChange = { isChecked ->
+                                val newSelection = currentSelection.toMutableSet()
+                                if (isChecked) {
+                                    newSelection.add(schedule)
+                                } else {
+                                    newSelection.remove(schedule)
+                                }
+                                currentSelection = newSelection
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(schedule)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(currentSelection.toList()) }) {
+                Text("확인")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
+fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -> Unit) {
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("1+1 달", "오늘")
     val pagerState = rememberPagerState { tabTitles.size }
     val view = LocalView.current
-    var visible by remember { mutableStateOf(false) }
+
+    var showScheduleDialog by remember { mutableStateOf(false) }
+    var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val allSchedules by produceState<List<String>>(initialValue = emptyList(), key1 = dbHelper) {
+        value = withContext(Dispatchers.IO) {
+            dbHelper.getDistinctScheduleTitles("personal")
+        }
+    }
+
+    if (showScheduleDialog) {
+        PersonalScheduleSelectionDialog(
+            allSchedules = allSchedules,
+            selectedSchedules = selectedSchedules,
+            onDismiss = { showScheduleDialog = false },
+            onConfirm = { newSelection ->
+                selectedSchedules = newSelection
+                showScheduleDialog = false
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -217,10 +307,10 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { visible = !visible }) {
+                    IconButton(onClick = { showScheduleDialog = true }) {
                         Icon(painter = painterResource(id = R.drawable.visible),contentDescription = "보기")
                     }
-                    IconButton(onClick = { 
+                    IconButton(onClick = {
                         coroutineScope.launch {
                             captureAndShare(view, context)
                         }
@@ -273,7 +363,12 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
             verticalAlignment = Alignment.Top
         ) { page ->
             when (page) {
-                0 -> TwoMonthFragment(modifier = Modifier.fillMaxHeight(), fetchHolidaysForYear = fetchHolidaysForYear, visible = visible)
+                0 -> TwoMonthFragment(
+                    modifier = Modifier.fillMaxHeight(),
+                    fetchHolidaysForYear = fetchHolidaysForYear,
+                    visible = true,
+                    selectedPersonalSchedules = selectedSchedules
+                )
                 1 -> TodayFragment()
             }
         }
@@ -284,6 +379,6 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
 @Composable
 fun DefaultPreview() {
     TwocalendarTheme {
-        MainScreenWithTopBar(fetchHolidaysForYear = {})
+        MainScreenWithTopBar(dbHelper = DatabaseHelper(LocalContext.current), fetchHolidaysForYear = {})
     }
 }
