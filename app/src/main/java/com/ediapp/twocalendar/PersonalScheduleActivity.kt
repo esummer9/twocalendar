@@ -4,7 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,7 +25,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerState
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -129,15 +131,57 @@ fun AddScheduleDialog(
     onDismiss: () -> Unit,
     onConfirm: (LocalDate, String) -> Unit
 ) {
-    val datePickerState = rememberDatePickerState()
     var title by remember { mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("개인일정") },
         text = {
             Column {
-                DatePicker(state = datePickerState)
+                Box {
+                    TextField(
+                        value = selectedDate.toString(),
+                        onValueChange = {},
+                        label = { Text("날짜") },
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(onClick = { showDatePicker = true })
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 TextField(
                     value = title,
@@ -150,10 +194,7 @@ fun AddScheduleDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val selectedDate = datePickerState.selectedDateMillis?.let {
-                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                    }
-                    if (selectedDate != null && title.isNotBlank()) {
+                    if (title.isNotBlank()) {
                         onConfirm(selectedDate, title)
                     }
                 }
@@ -285,7 +326,7 @@ fun PersonalScheduleScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 1번째 컬럼: D-day 값
-                            val daysDiff = ChronoUnit.DAYS.between(today, date)
+                            val daysDiff = ChronoUnit.DAYS.between(date, today)
                             val diffText = when {
                                 daysDiff == 0L -> "오늘"
                                 daysDiff > 0L -> "D+$daysDiff"
