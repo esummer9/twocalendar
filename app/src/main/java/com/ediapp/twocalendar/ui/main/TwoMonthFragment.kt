@@ -1,5 +1,6 @@
 package com.ediapp.twocalendar.ui.main
 
+import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ediapp.twocalendar.DatabaseHelper
+import com.ediapp.twocalendar.PersonalScheduleActivity
 import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.LocalTime
@@ -64,15 +66,26 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
 
+    val holidays = remember(baseMonth, reloadData) {
+        val firstMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("holiday", "personal"))
+        val secondMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("holiday", "personal"))
+        firstMonthHolidays + secondMonthHolidays
+    }
+
     val onDateLongClick = { date: LocalDate ->
         selectedDateForDialog = date
         showScheduleDialog = true
     }
 
-    val holidays = remember(baseMonth, reloadData) {
-        val firstMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("holiday", "personal"))
-        val secondMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("holiday", "personal"))
-        firstMonthHolidays + secondMonthHolidays
+    val onDateClick = { date: LocalDate ->
+        val holiday = holidays[date]
+        if (holiday?.split("|")?.first()?.startsWith("personal") == true) {
+            val intent = Intent(context, PersonalScheduleActivity::class.java).apply {
+                putExtra("year", date.year)
+                putExtra("month", date.monthValue)
+            }
+            context.startActivity(intent)
+        }
     }
 
 
@@ -117,9 +130,9 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                 }
             }
 
-//        Text(text = "${firstMonth.year}년 ${firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+//        Text(text = "$'{firstMonth.year}년 $'{firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
-            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick)
+            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
 
             Spacer(modifier = Modifier.height(4.dp))
             HorizontalDivider()
@@ -131,7 +144,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
-            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick)
+            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
         }
     }
 
@@ -140,7 +153,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
             date = selectedDateForDialog!!,
             onDismiss = { showScheduleDialog = false },
             onConfirm = { title, time ->
-                dbHelper.addSchedule(selectedDateForDialog!!, time, title)
+                dbHelper.addSchedule(selectedDateForDialog!!, title)
                 showScheduleDialog = false
                 reloadData = !reloadData
             }
@@ -190,7 +203,7 @@ fun AddScheduleDialog(
 
 
 @Composable
-fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifier: Modifier = Modifier, onDateLongClick: (LocalDate) -> Unit) {
+fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifier: Modifier = Modifier, onDateLongClick: (LocalDate) -> Unit, onDateClick: (LocalDate) -> Unit) {
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = yearMonth.atDay(1)
     val startDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // Sunday = 0, Monday = 1, ...
@@ -255,7 +268,8 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                 .aspectRatio(1.45f)
                                 .pointerInput(date) {
                                     detectTapGestures(
-                                        onLongPress = { onDateLongClick(date) }
+                                        onLongPress = { onDateLongClick(date) },
+                                        onTap = { onDateClick(date) }
                                     )
                                 }
                                 .then(

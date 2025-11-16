@@ -157,7 +157,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         }
     }
     
-    fun addSchedule(date: LocalDate, time: LocalTime, title: String) {
+    fun addSchedule(date: LocalDate, title: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
             put(COL_SOURCE, "manual")
@@ -215,6 +215,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
 
         categorys.forEach { category ->
+
+            val SQL = "SELECT $COL_APPLY_DT, $COL_TITLE FROM $TABLE_NAME WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
+
+            Log.d(TAG, "SQL: $SQL, catetory : $category, monthStr : $monthStr% ")
+
             val cursor = db.query(
                 TABLE_NAME,
                 arrayOf(COL_APPLY_DT, COL_TITLE),
