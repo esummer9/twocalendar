@@ -79,7 +79,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
 
     val onDateClick = { date: LocalDate ->
         val holiday = holidays[date]
-        if (holiday?.split("|")?.first()?.startsWith("personal") == true) {
+        if (holiday?.contains("personal") == true) {
             val intent = Intent(context, PersonalScheduleActivity::class.java).apply {
                 putExtra("year", date.year)
                 putExtra("month", date.monthValue)
@@ -254,11 +254,15 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
 
                         var dayColor = Color.Black
                         if (holiday != null) {
-                            Log.d("holiday", "$date $holiday")
-                            if (holiday?.split("|")?.first()?.startsWith("holiday") == true)
-                                dayColor = Color.Red
-                            else
-                                dayColor = Color(0xFFFFA500)
+                            val isHoliday = holiday.contains("holiday")
+                            val isPersonal = holiday.contains("personal")
+
+                            dayColor = when {
+                                isHoliday && isPersonal -> Color(0xFF800080)
+                                isHoliday -> Color.Red
+                                isPersonal -> Color(0xFFFFA500)
+                                else -> Color.Black
+                            }
                         }
 
 //                        dayColor = if ( holiday?.split("|")?.first()?.startsWith("holiday") == true) Color.Red else Color.Gray
