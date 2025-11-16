@@ -63,24 +63,26 @@ class PersonalScheduleActivity : ComponentActivity() {
                 val dbHelper = DatabaseHelper(this)
                 var baseMonth by remember { mutableStateOf(YearMonth.now()) }
 
-                val schedules by produceState<Map<LocalDate, List<Schedule>>>(initialValue = emptyMap(), key1 = baseMonth) {
+                val schedules by produceState<List<Pair<LocalDate, Schedule>>>(initialValue = emptyList(), key1 = baseMonth) {
                     val firstMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("personal"))
                     val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("personal"))
 
-                    val allSchedulesRaw = firstMonthSchedulesRaw + secondMonthSchedulesRaw
+                    val allSchedulesRaw = (firstMonthSchedulesRaw.keys + secondMonthSchedulesRaw.keys).associateWith {
+                        (firstMonthSchedulesRaw[it].orEmpty() + "\n" + secondMonthSchedulesRaw[it].orEmpty()).trim()
+                    }
 
-                    value = allSchedulesRaw.mapValues { (_, scheduleString) ->
-                        scheduleString.split('\n').mapNotNull {
-                            val parts = it.split('|', limit = 2)
-                            if (parts.size == 2) {
-                                Schedule(category = parts[0], title = parts[1])
-                            } else {
-                                null
+                    value = allSchedulesRaw.entries
+                        .flatMap { (date, scheduleString) ->
+                            scheduleString.split('\n').mapNotNull { line ->
+                                val parts = line.split('|', limit = 2)
+                                if (parts.size == 2) {
+                                    date to Schedule(category = parts[0], title = parts[1])
+                                } else {
+                                    null
+                                }
                             }
                         }
-                    }
-                    .filter { it.value.isNotEmpty() }
-                    .toSortedMap(naturalOrder())
+                        .sortedBy { it.first }
                 }
 
                 PersonalScheduleScreen(
@@ -103,7 +105,7 @@ class PersonalScheduleActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonalScheduleScreen(
-    schedules: Map<LocalDate, List<Schedule>>,
+    schedules: List<Pair<LocalDate, Schedule>>,
     baseMonth: YearMonth,
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit,
@@ -191,35 +193,40 @@ fun PersonalScheduleScreen(
                 val today = LocalDate.now()
                 LazyColumn(
                 ) {
-                    schedules.forEach { (date, scheduleList) ->
-                        item {
-                            Row(
+                    items(schedules) { (date, schedule) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 1번째 컬럼: D-day 값
+                            val daysDiff = ChronoUnit.DAYS.between(today, date)
+                            val diffText = when {
+                                daysDiff == 0L -> "D-day"
+                                daysDiff > 0L -> "D+$daysDiff"
+                                else -> "D$daysDiff"
+                            }
+                            val diffColor = when {
+                                daysDiff < 0L -> Color.Gray
+                                daysDiff == 0L -> Color.Red
+                                daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
+                                else -> Color.Unspecified
+                            }
+
+                            Text(
+                                text = diffText,
+                                color = diffColor,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(0.25f)
+                            )
+
+                            // 2번째 컬럼: 날짜/요일 및 제목
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    .weight(0.75f)
+                                    .padding(horizontal = 8.dp)
                             ) {
-                                val daysDiff = ChronoUnit.DAYS.between(today, date)
-                                val diffText = when {
-                                    daysDiff == 0L -> "D-day"
-                                    daysDiff > 0L -> "D+$daysDiff"
-                                    else -> "D$daysDiff"
-                                }
-                                val diffColor = when {
-                                    daysDiff < 0L -> Color.Gray
-                                    daysDiff == 0L -> Color.Red
-                                    daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
-                                    else -> Color.Unspecified
-                                }
-
-                                Text(
-                                    text = diffText,
-                                    color = diffColor,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(0.25f)
-                                )
-
                                 val dayOfWeek = date.dayOfWeek
                                 val dayOfWeekText = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
                                 val dayOfWeekColor = when (dayOfWeek) {
@@ -227,7 +234,6 @@ fun PersonalScheduleScreen(
                                     DayOfWeek.SUNDAY -> Color.Red
                                     else -> Color.Unspecified
                                 }
-
                                 Text(
                                     text = buildAnnotatedString {
                                         append(date.toString())
@@ -237,32 +243,21 @@ fun PersonalScheduleScreen(
                                         }
                                         append(")")
                                     },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.weight(0.75f)
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
-                            }
-                        }
-                        items(scheduleList) { schedule ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 32.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
                                 Text(
                                     text = schedule.title,
-                                    modifier = Modifier.weight(1f)
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                IconButton(onClick = { showDialog = date to schedule.title }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "삭제")
-                                }
+                            }
+
+                            // 3번째 컬럼: 삭제 버튼
+                            IconButton(onClick = { showDialog = date to schedule.title }) {
+                                Icon(Icons.Default.Delete, contentDescription = "삭제")
                             }
                         }
-                        // 날짜별 일정 목록 다음에 구분선을 추가합니다.
-                        item {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                        }
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
@@ -274,10 +269,11 @@ fun PersonalScheduleScreen(
 @Composable
 fun PersonalScheduleScreenPreview() {
     TwocalendarTheme {
-        val sampleSchedules = mapOf(
-            LocalDate.now() to listOf(Schedule("personal", "개인일정 1")),
-            LocalDate.now().plusDays(1) to listOf(Schedule("personal", "개인일정 2"), Schedule("personal", "미팅")),
-            LocalDate.now().minusDays(3) to listOf(Schedule("personal", "지난일정"))
+        val sampleSchedules = listOf(
+            LocalDate.now() to Schedule("personal", "개인일정 1"),
+            LocalDate.now().plusDays(1) to Schedule("personal", "개인일정 2"),
+            LocalDate.now().plusDays(1) to Schedule("personal", "미팅"),
+            LocalDate.now().minusDays(3) to Schedule("personal", "지난일정")
         )
         PersonalScheduleScreen(
             schedules = sampleSchedules,
