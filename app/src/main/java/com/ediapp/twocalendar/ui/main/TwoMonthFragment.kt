@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +59,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
+    var reloadData by remember { mutableStateOf(false) }
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
@@ -69,9 +69,9 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
         showScheduleDialog = true
     }
 
-    val holidays = remember(baseMonth) {
-        val firstMonthHolidays = dbHelper.getDaysForCatetoryMonth(baseMonth, listOf("holiday", "personal"))
-        val secondMonthHolidays = dbHelper.getDaysForCatetoryMonth(baseMonth.plusMonths(1), listOf("holiday", "personal"))
+    val holidays = remember(baseMonth, reloadData) {
+        val firstMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("holiday", "personal"))
+        val secondMonthHolidays = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("holiday", "personal"))
         firstMonthHolidays + secondMonthHolidays
     }
 
@@ -142,6 +142,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
             onConfirm = { title, time ->
                 dbHelper.addSchedule(selectedDateForDialog!!, time, title)
                 showScheduleDialog = false
+                reloadData = !reloadData
             }
         )
     }
@@ -169,8 +170,6 @@ fun AddScheduleDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("시간 선택")
-                TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {

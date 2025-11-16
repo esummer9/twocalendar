@@ -190,13 +190,6 @@ fun MainScreenWithTopBar(fetchHolidaysForYear: (Int) -> Unit) {
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("일정목록") },
-                                onClick = {
-                                    context.startActivity(Intent(context, ScheduleListActivity::class.java))
-                                    menuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
                                 text = { Text("개인일정") },
                                 onClick = {
                                     context.startActivity(Intent(context, PersonalScheduleActivity::class.java))

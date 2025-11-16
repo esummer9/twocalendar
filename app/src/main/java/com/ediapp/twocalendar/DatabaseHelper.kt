@@ -171,6 +171,15 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         db.insertWithOnConflict(TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
+    fun deletePersonalSchedule(date: LocalDate, title: String) {
+        val db = this.writableDatabase
+        db.delete(
+            TABLE_NAME,
+            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
+            arrayOf("personal", date.toString(), title)
+        )
+    }
+
     fun addDay(source: String, category: String, type: String, dataKey: String, title: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
@@ -200,7 +209,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         return count
     }
 
-    fun getDaysForCatetoryMonth(yearMonth: java.time.YearMonth, categorys: List<String>): Map<java.time.LocalDate, String> {
+    fun getDaysForCategoryMonth(yearMonth: java.time.YearMonth, categorys: List<String>): Map<java.time.LocalDate, String> {
         val db = this.readableDatabase
         val holidays = mutableMapOf<java.time.LocalDate, String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
@@ -211,7 +220,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
                 arrayOf(COL_APPLY_DT, COL_TITLE),
                 "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
                 arrayOf(category, "$monthStr%"),
-                null, null, null
+                null, null, "$COL_APPLY_DT ASC"
             )
 
             val dateColumnIndex = cursor.getColumnIndex(COL_APPLY_DT)
