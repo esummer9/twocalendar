@@ -57,7 +57,7 @@ import java.time.YearMonth
 
 
 @Composable
-fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) -> Unit) {
+fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) -> Unit, visible: Boolean) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
@@ -132,10 +132,12 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
 
 //        Text(text = "$'{firstMonth.year}년 $'{firstMonth.monthValue}월", modifier = Modifier.padding(vertical = 2.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
-            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
+            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visible)
 
             Spacer(modifier = Modifier.height(4.dp))
+
             HorizontalDivider()
+
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
@@ -144,7 +146,7 @@ fun TwoMonthFragment(modifier: Modifier = Modifier, fetchHolidaysForYear: (Int) 
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
-            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick)
+            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visible)
         }
     }
 
@@ -203,7 +205,7 @@ fun AddScheduleDialog(
 
 
 @Composable
-fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifier: Modifier = Modifier, onDateLongClick: (LocalDate) -> Unit, onDateClick: (LocalDate) -> Unit) {
+fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifier: Modifier = Modifier, onDateLongClick: (LocalDate) -> Unit, onDateClick: (LocalDate) -> Unit, visible: Boolean) {
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = yearMonth.atDay(1)
     val startDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // Sunday = 0, Monday = 1, ...
@@ -317,6 +319,9 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                     else -> Color.Unspecified
                                 }
                                 Text(text = dayOfMonth.toString(), color = color, fontSize = 16.sp)
+                                if (visible && holiday != null) {
+//                                    Text(text = holiday, fontSize = 10.sp)
+                                }
                             }
                         }
                     } else {
