@@ -4,6 +4,9 @@ import android.content.Context
 import android.provider.Settings
 
 object Constants {
+
+    val my_sep = ";;;"
+
     data class ApiConfig(
         val baseUrl: String,
         val serviceKey: String,

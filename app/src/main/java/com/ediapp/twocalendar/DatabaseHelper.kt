@@ -276,7 +276,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
                         if ( holidays[date] == null)
                             holidays[date] = "${category}|${title}"
                         else
-                            holidays[date] += "\n${category}|${title}"
+                            holidays[date] += "${Constants.my_sep}${category}|${title}"
                     } catch (e: java.time.format.DateTimeParseException) {
                         Log.e(TAG, "Error parsing date: $dateStr", e)
                     }

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ediapp.twocalendar.Constants.my_sep
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.PersonalScheduleActivity
 import com.ediapp.twocalendar.R
@@ -70,32 +71,33 @@ fun TwoMonthFragment(
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
-    var reloadData by remember { mutableStateOf(false) }
+    var newlyAddedSchedules by remember { mutableStateOf(listOf<String>()) }
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
 
-    val holidays = remember(baseMonth, reloadData, selectedPersonalSchedules) {
+    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules) {
+        val allSelectedSchedules = selectedPersonalSchedules + newlyAddedSchedules
         val categories = mutableListOf("holiday")
-        if (selectedPersonalSchedules.isNotEmpty()) {
+        if (allSelectedSchedules.isNotEmpty()) {
             categories.add("personal")
         }
         val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
                 dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
 
-        if (selectedPersonalSchedules.isNotEmpty()) {
+        if (allSelectedSchedules.isNotEmpty()) {
             allSchedules.mapValues { (_, descriptions) ->
-                descriptions.split('\n').filter { desc ->
+                descriptions.split(my_sep).filter { desc ->
                     val parts = desc.split('|', limit = 2)
                     if (parts.size < 2) return@filter false
                     val category = parts[0]
                     val title = parts[1]
                     if (category == "personal") {
-                        title in selectedPersonalSchedules
+                        title in allSelectedSchedules
                     } else { // holiday
                         true
                     }
-                }.joinToString("\n")
+                }.joinToString(my_sep)
             }.filterValues { it.isNotBlank() }
         } else {
             allSchedules
@@ -193,7 +195,7 @@ fun TwoMonthFragment(
                     date.year == firstMonth.year && date.month == firstMonth.month
                 }.mapNotNull { (date, description) ->
                     var holidayName = ""
-                    description.split("\n").forEach { row ->
+                    description.split(my_sep).forEach { row ->
                         val nm = row.split("|")[1]
                         holidayName += if(holidayName == "") nm else ",$nm"
                     }
@@ -229,7 +231,7 @@ fun TwoMonthFragment(
                     date.year == secondMonth.year && date.month == secondMonth.month
                 }.mapNotNull { (date, description) ->
                     var holidayName = ""
-                    description.split("\n").forEach { row ->
+                    description.split(my_sep).forEach { row ->
                         val nm = row.split("|")[1]
                         holidayName += if(holidayName == "") nm else ",$nm"
                     }
@@ -258,7 +260,7 @@ fun TwoMonthFragment(
             onConfirm = { title, time ->
                 dbHelper.addPersonalSchedule(selectedDateForDialog!!, title)
                 showScheduleDialog = false
-                reloadData = !reloadData
+                newlyAddedSchedules = newlyAddedSchedules + title
             }
         )
     }
