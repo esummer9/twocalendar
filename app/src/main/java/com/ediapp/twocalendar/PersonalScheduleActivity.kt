@@ -116,7 +116,7 @@ class PersonalScheduleActivity : ComponentActivity() {
                         refreshTrigger++
                     },
                     onAdd = { date, title ->
-                        dbHelper.addSchedule(date, title) // TODO: Implement addPersonalSchedule in DatabaseHelper
+                        dbHelper.addPersonalSchedule(date, title) // TODO: Implement addPersonalSchedule in DatabaseHelper
                         refreshTrigger++
                     }
                 )

@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
+import java.time.YearMonth
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
@@ -190,7 +191,7 @@ fun PersonalScheduleSelectionDialog(
     onConfirm: (List<String>) -> Unit
 ) {
     var currentSelection by remember { mutableStateOf(selectedSchedules.toSet()) }
-
+//    Log.d("PersonalScheduleSelectionDialog", "allSchedules: $allSchedules")
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("개인일정 선택") },
@@ -256,10 +257,11 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
+    var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
 
-    val allSchedules by produceState<List<String>>(initialValue = emptyList(), key1 = dbHelper) {
+    val allSchedules by produceState<List<String>>(initialValue = emptyList(), dbHelper, currentYearMonth) {
         value = withContext(Dispatchers.IO) {
-            dbHelper.getDistinctScheduleTitles("personal")
+            dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth)
         }
     }
 
@@ -367,7 +369,8 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     modifier = Modifier.fillMaxHeight(),
                     fetchHolidaysForYear = fetchHolidaysForYear,
                     visible = true,
-                    selectedPersonalSchedules = selectedSchedules
+                    selectedPersonalSchedules = selectedSchedules,
+                    onMonthChanged = { currentYearMonth = it }
                 )
                 1 -> TodayFragment()
             }

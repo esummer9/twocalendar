@@ -64,7 +64,8 @@ fun TwoMonthFragment(
     modifier: Modifier = Modifier,
     fetchHolidaysForYear: (Int) -> Unit,
     visible: Boolean,
-    selectedPersonalSchedules: List<String>
+    selectedPersonalSchedules: List<String>,
+    onMonthChanged: (YearMonth) -> Unit
 ) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
@@ -124,6 +125,7 @@ fun TwoMonthFragment(
     val secondMonth = baseMonth.plusMonths(1)
 
     LaunchedEffect(baseMonth) {
+        onMonthChanged(baseMonth)
         fetchHolidaysForYear(baseMonth.year)
         fetchHolidaysForYear(baseMonth.plusMonths(1).year)
     }
@@ -254,7 +256,7 @@ fun TwoMonthFragment(
             date = selectedDateForDialog!!,
             onDismiss = { showScheduleDialog = false },
             onConfirm = { title, time ->
-                dbHelper.addSchedule(selectedDateForDialog!!, title)
+                dbHelper.addPersonalSchedule(selectedDateForDialog!!, title)
                 showScheduleDialog = false
                 reloadData = !reloadData
             }

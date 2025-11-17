@@ -7,8 +7,9 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import java.time.LocalDate
-import java.time.LocalTime
 import androidx.core.database.sqlite.transaction
+import java.time.YearMonth
+import kotlin.random.Random
 
 /**
  * Database helper class for managing the application's SQLite database.
@@ -157,14 +158,16 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         }
     }
 
-    fun getDistinctScheduleTitles(category: String): List<String> {
+
+    fun getDistinctScheduleTitlesForMonth(category: String, yearMonth: YearMonth): List<String> {
         val db = this.readableDatabase
         val titles = mutableListOf<String>()
+        val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
         val cursor = db.query(
             TABLE_NAME,
             arrayOf("DISTINCT $COL_TITLE"),
-            "$COL_CATEGORY = ?",
-            arrayOf(category),
+            "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
+            arrayOf(category, "$monthStr%"),
             null, null, "$COL_TITLE ASC"
         )
 
@@ -182,18 +185,19 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         return titles
     }
     
-    fun addSchedule(date: LocalDate, title: String) {
+    fun addPersonalSchedule(date: LocalDate, title: String) {
+        val randVal = Random.nextInt()
         val db = this.writableDatabase
         val values = ContentValues().apply {
             put(COL_SOURCE, "manual")
             put(COL_CATEGORY, "personal")
             put(COL_TYPE, "date")
-            put(COL_DATA_KEY, "personal-$date")
+            put(COL_DATA_KEY, "personal-$date-$randVal")
             put(COL_APPLY_DT, date.toString())
             put(COL_TITLE, title)
             put(COL_ALIAS, title)
         }
-        db.insertWithOnConflict(TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        db.insert(TABLE_NAME, null, values)
     }
 
     fun deletePersonalSchedule(date: LocalDate, title: String) {
@@ -281,7 +285,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
             cursor.close()
         }
 
-        Log.d(TAG, "Holidays: $holidays")
+//        Log.d(TAG, "Holidays: $holidays")
         return holidays
     }
 }
