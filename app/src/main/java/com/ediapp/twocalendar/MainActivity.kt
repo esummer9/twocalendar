@@ -335,10 +335,12 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        showScheduleDialog = true
-                    }) {
-                        Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
+                    if (pagerState.currentPage == 0) {
+                        IconButton(onClick = {
+                            showScheduleDialog = true
+                        }) {
+                            Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
+                        }
                     }
                     IconButton(onClick = {
                         coroutineScope.launch {
