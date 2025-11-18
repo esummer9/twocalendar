@@ -64,7 +64,7 @@ import java.time.YearMonth
 fun TwoMonthFragment(
     modifier: Modifier = Modifier,
     fetchHolidaysForYear: (Int) -> Unit,
-    visible: Boolean,
+    visibleCalList: Boolean,
     selectedPersonalSchedules: List<String>,
     onMonthChanged: (YearMonth) -> Unit
 ) {
@@ -121,7 +121,7 @@ fun TwoMonthFragment(
     }
 
 
-    Log.d("holidays", "visible:$visible | $holidays ")
+    Log.d("holidays", "visible:$visibleCalList | $holidays ")
 
     val firstMonth = baseMonth
     val secondMonth = baseMonth.plusMonths(1)
@@ -189,27 +189,9 @@ fun TwoMonthFragment(
                 }
             }
 
-            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visible)
-            if(visible) {
-                val firstMonthHolidays = holidays.filter { (date, description) ->
-                    date.year == firstMonth.year && date.month == firstMonth.month
-                }.mapNotNull { (date, description) ->
-                    var holidayName = ""
-                    description.split(my_sep).forEach { row ->
-                        val nm = row.split("|")[1]
-                        holidayName += if(holidayName == "") nm else ",$nm"
-                    }
-                    holidayName?.let { date to it }
-                }.sortedBy { it.first.dayOfMonth }
-
-                if (firstMonthHolidays.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        firstMonthHolidays.forEach { (date, holidayName) ->
-                            Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
-                        }
-                    }
-                }
+            MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
+            if(visibleCalList) {
+                HolidayList(holidays = holidays, yearMonth = firstMonth)
             }
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -224,30 +206,10 @@ fun TwoMonthFragment(
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
-            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visible)
+            MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
 
-            if(visible) {
-                val secondMonthHolidays = holidays.filter { (date, description) ->
-                    date.year == secondMonth.year && date.month == secondMonth.month
-                }.mapNotNull { (date, description) ->
-                    var holidayName = ""
-                    description.split(my_sep).forEach { row ->
-                        val nm = row.split("|")[1]
-                        holidayName += if(holidayName == "") nm else ",$nm"
-                    }
-                    holidayName?.let { date to it }
-
-                }.sortedBy { it.first.dayOfMonth }
-
-                if (secondMonthHolidays.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        secondMonthHolidays.forEach { (date, holidayName) ->
-                            Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+            if(visibleCalList) {
+                HolidayList(holidays = holidays, yearMonth = secondMonth)
             }
 
         }
@@ -437,5 +399,29 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                 }
             }
         }
+    }
+}
+
+@Composable
+fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth) {
+    val monthHolidays = holidays.filter { (date, _) ->
+        date.year == yearMonth.year && date.month == yearMonth.month
+    }.mapNotNull { (date, description) ->
+        var holidayName = ""
+        description.split(my_sep).forEach { row ->
+            val nm = row.split("|")[1]
+            holidayName += if (holidayName == "") nm else ",$nm"
+        }
+        holidayName.let { date to it }
+    }.sortedBy { it.first.dayOfMonth }
+
+    if (monthHolidays.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            monthHolidays.forEach { (date, holidayName) ->
+                Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }

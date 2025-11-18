@@ -433,12 +433,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     IconButton(onClick = { showDisplayOptionsDialog = true }) {
                         Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
                     }
-                    IconButton(onClick = {
-                        isSharingFlow = false
-                        showScheduleDialog = true
-                    }) {
-                        Icon(painter = painterResource(id = R.drawable.visible),contentDescription = "보기")
-                    }
+
                     IconButton(onClick = {
                         isSharingFlow = true
                         showScheduleDialog = true
@@ -494,7 +489,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                 0 -> TwoMonthFragment(
                     modifier = Modifier.fillMaxHeight(),
                     fetchHolidaysForYear = fetchHolidaysForYear,
-                    visible = true,
+                    visibleCalList = true,
                     selectedPersonalSchedules = selectedSchedules,
                     onMonthChanged = { currentYearMonth = it }
                 )
