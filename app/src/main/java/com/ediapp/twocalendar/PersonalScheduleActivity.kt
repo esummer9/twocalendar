@@ -83,12 +83,12 @@ class PersonalScheduleActivity : ComponentActivity() {
                     val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("personal"))
 
                     val allSchedulesRaw = (firstMonthSchedulesRaw.keys + secondMonthSchedulesRaw.keys).associateWith {
-                        (firstMonthSchedulesRaw[it].orEmpty() + "\n" + secondMonthSchedulesRaw[it].orEmpty()).trim()
+                        (firstMonthSchedulesRaw[it].orEmpty() + Constants.my_sep + secondMonthSchedulesRaw[it].orEmpty()).trim()
                     }
 
                     value = allSchedulesRaw.entries
                         .flatMap { (date, scheduleString) ->
-                            scheduleString.split('\n').mapNotNull { line ->
+                            scheduleString.split(Constants.my_sep).mapNotNull { line ->
                                 if (line.isNotBlank()) {
                                     val parts = line.split('|', limit = 2)
                                     if (parts.size == 2) {

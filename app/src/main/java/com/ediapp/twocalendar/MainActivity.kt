@@ -260,13 +260,15 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var scheduleUpdateTrigger by remember { mutableStateOf(0) }
 
-    val allSchedules by produceState<List<String>>(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
-        value = withContext(Dispatchers.IO) {
-            dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth)
-        }
-    }
+
 
     if (showScheduleDialog) {
+        val allSchedules by produceState<List<String>>(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
+            value = withContext(Dispatchers.IO) {
+                dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth)
+            }
+        }
+
         PersonalScheduleSelectionDialog(
             allSchedules = allSchedules,
             selectedSchedules = selectedSchedules,
@@ -371,11 +373,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     fetchHolidaysForYear = fetchHolidaysForYear,
                     visible = true,
                     selectedPersonalSchedules = selectedSchedules,
-                    onMonthChanged = { currentYearMonth = it },
-                    onPersonalScheduleAdded = { newSchedule ->
-                        scheduleUpdateTrigger++
-                        selectedSchedules = selectedSchedules + newSchedule
-                    }
+                    onMonthChanged = { currentYearMonth = it }
                 )
                 1 -> TodayFragment()
             }
