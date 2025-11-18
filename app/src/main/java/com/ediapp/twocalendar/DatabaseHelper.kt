@@ -6,16 +6,14 @@ import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
-import java.time.LocalDate
 import androidx.core.database.sqlite.transaction
+import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.random.Random
 
-/**
- * Database helper class for managing the application's SQLite database.
- * Handles database creation, version management, and provides helper methods for data operations.
- */
-class DatabaseHelper(context: Context) : SQLiteOpenHelper(
+data class Saying(val saying: String, val author: String)
+
+class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     context,
     DATABASE_NAME,
     null,
@@ -27,10 +25,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseHelper"
         private const val DATABASE_NAME = "ediapp.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         // Table name
         const val TABLE_NAME = "tb_days"
+        const val TABLE_NAME_SAYING = "tb_saying"
 
         // Column names
         const val COL_ID = "_id"
@@ -48,6 +47,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         const val COL_CREATED_AT = "created_at"
         const val COL_DELETED_AT = "deleted_at"
         const val COL_STATUS = "status"
+
+        // tb_saying columns
+        const val COL_SAYING_SAYING = "saying"
+        const val COL_SAYING_AUTHOR = "author"
+
         // SQL for creating the database table
         private val SQL_CREATE_TABLE = """
             CREATE TABLE $TABLE_NAME (
@@ -69,40 +73,32 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
                 UNIQUE($COL_SOURCE, $COL_CATEGORY, $COL_DATA_KEY) ON CONFLICT REPLACE
             )
         """.trimIndent()
+
+        private val SQL_CREATE_TABLE_SAYING = """
+            CREATE TABLE $TABLE_NAME_SAYING (
+                $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_SAYING_SAYING TEXT NOT NULL,
+                $COL_SAYING_AUTHOR VARCHAR(100) NOT NULL
+            )
+        """.trimIndent()
     }
 
-    /**
-     * Called when the database is created for the first time.
-     * Creates the database tables and initializes them with default data.
-     */
     override fun onCreate(db: SQLiteDatabase) {
         try {
-            // Begin transaction
             db.transaction {
+                execSQL(SQL_CREATE_TABLE)
+                execSQL(SQL_CREATE_TABLE_SAYING)
 
-                try {
-                    // Create table
-                    execSQL(SQL_CREATE_TABLE)
-
-                    // Insert initial data
-                    insertInitialData(this)
-
-                    // Mark transaction as successful
-                    Log.d(TAG, "Database created successfully")
-                } finally {
-                    // End transaction
-                }
+                insertInitialData(this)
+                insertSayingData(this)
             }
+            Log.d(TAG, "Database created successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error creating database", e)
             throw RuntimeException("Failed to create database", e)
         }
     }
 
-    /**
-     * Inserts initial data into the database.
-     * @param db The database to insert data into
-     */
     private fun insertInitialData(db: SQLiteDatabase) {
         val values = ContentValues().apply {
             put(COL_SOURCE, "app")
@@ -116,48 +112,76 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
             put(COL_MESSAGE, "Application has been installed")
             put(COL_DESCRIPTION, "Initial installation record")
         }
-
-        db.insertWithOnConflict(
-            TABLE_NAME,
-            null,
-            values,
-            SQLiteDatabase.CONFLICT_REPLACE
-        )
+        db.insertWithOnConflict(TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    /**
-     * Called when the database needs to be upgraded.
-     * This method will be called if the database version is increased in the application code.
-     */
+    public fun insertSayingData(db: SQLiteDatabase) {
+        try {
+            context.assets.open("tb_saying.txt").bufferedReader().useLines { lines ->
+                db.transaction {
+                    lines.forEach { line ->
+                        val parts = line.split('\t')
+                        if (parts.size == 2) {
+                            val values = ContentValues().apply {
+                                put(COL_SAYING_SAYING, parts[0])
+                                put(COL_SAYING_AUTHOR, parts[1])
+                            }
+                            db.insert(TABLE_NAME_SAYING, null, values)
+                        }
+                    }
+                }
+            }
+            Log.d(TAG, "Successfully inserted data into tb_saying")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inserting data into tb_saying", e)
+        }
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         Log.w(TAG, "Upgrading database from version $oldVersion to $newVersion")
 
         try {
-            db.transaction {
-
-                try {
-                    // Example of database migration (add more cases as needed)
-                    when (oldVersion) {
-                        1 -> {
-                            // Upgrade from version 1 to 2
-                            // Add your migration code here
-                            Log.d(TAG, "Migrating database from version 1 to 2")
-                        }
-                        // Add more cases for future versions
-                    }
-
-                    Log.d(TAG, "Database upgraded successfully to version $newVersion")
-                } finally {
+            if (oldVersion < 2) {
+                db.transaction {
+                    execSQL(SQL_CREATE_TABLE_SAYING)
+                    insertSayingData(this)
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error upgrading database", e)
-            // If there's an error, you might want to handle it by recreating the database
-            // or notifying the user about the error
             throw RuntimeException("Failed to upgrade database", e)
         }
     }
 
+    fun getSayingByNo(no: Int): Saying? {
+        val db = this.readableDatabase
+        val cursor = db.query(
+            TABLE_NAME_SAYING,
+            arrayOf(COL_SAYING_SAYING, COL_SAYING_AUTHOR),
+            "$COL_ID = ?",
+            arrayOf(no.toString()),
+            null, null, null
+        )
+        var saying: Saying? = null
+        if (cursor.moveToFirst()) {
+            val sayingText = cursor.getString(cursor.getColumnIndexOrThrow(COL_SAYING_SAYING))
+            val authorText = cursor.getString(cursor.getColumnIndexOrThrow(COL_SAYING_AUTHOR))
+            saying = Saying(sayingText, authorText)
+        }
+        cursor.close()
+        return saying
+    }
+
+    fun getSayingCount(): Int {
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_NAME_SAYING", null)
+        var count = 0
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0)
+        }
+        cursor.close()
+        return count
+    }
 
     fun getDistinctScheduleTitlesForMonth(category: String, yearMonth: YearMonth): List<String> {
         val db = this.readableDatabase
@@ -184,7 +208,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         cursor.close()
         return titles
     }
-    
+
     fun addPersonalSchedule(date: LocalDate, title: String) {
         val randVal = Random.nextInt()
         val db = this.writableDatabase
@@ -238,9 +262,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
         return count
     }
 
-    fun getDaysForCategoryMonth(yearMonth: java.time.YearMonth, categorys: List<String>): Map<java.time.LocalDate, String> {
+    fun getDaysForCategoryMonth(yearMonth: YearMonth, categorys: List<String>): Map<LocalDate, String> {
         val db = this.readableDatabase
-        val holidays = mutableMapOf<java.time.LocalDate, String>()
+        val holidays = mutableMapOf<LocalDate, String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
 
         categorys.forEach { category ->
@@ -271,9 +295,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(
                 val title = cursor.getString(titleColumnIndex)
                 if (dateStr != null && title != null) {
                     try {
-                        val date = java.time.LocalDate.parse(dateStr)
+                        val date = LocalDate.parse(dateStr)
 //                        holidays[date] = title
-                        if ( holidays[date] == null)
+                        if (holidays[date] == null)
                             holidays[date] = "${category}|${title}"
                         else
                             holidays[date] += "${Constants.my_sep}${category}|${title}"

@@ -196,7 +196,7 @@ fun PersonalScheduleSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("일정보기 선택") },
+        title = { Text("개인일정 표시") },
         text = {
             Column {
                 Row(
