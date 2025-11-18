@@ -83,7 +83,6 @@ fun TwoMonthFragment(
         val categories = mutableListOf<String>()
         if (showHolidays) {
             categories.add("holiday")
-            categories.add("national_holiday")
         }
         if (allSelectedSchedules.isNotEmpty()) {
             categories.add("personal")
@@ -157,10 +156,10 @@ fun TwoMonthFragment(
                         },
                         onDragEnd = {
                             when {
-                                offsetX > 150 -> { // Swipe Right
+                                offsetX > 100 -> { // Swipe Right
                                     baseMonth = baseMonth.minusMonths(1)
                                 }
-                                offsetX < -150 -> { // Swipe Left
+                                offsetX < -100 -> { // Swipe Left
                                     baseMonth = baseMonth.plusMonths(1)
                                 }
                             }
