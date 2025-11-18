@@ -66,6 +66,7 @@ fun TwoMonthFragment(
     fetchHolidaysForYear: (Int) -> Unit,
     visibleCalList: Boolean,
     selectedPersonalSchedules: List<String>,
+    showHolidays: Boolean,
     onMonthChanged: (YearMonth) -> Unit
 ) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
@@ -76,31 +77,41 @@ fun TwoMonthFragment(
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
 
-    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules) {
+    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays) {
         val allSelectedSchedules = selectedPersonalSchedules + newlyAddedSchedules
-        val categories = mutableListOf("holiday")
+
+        val categories = mutableListOf<String>()
+        if (showHolidays) {
+            categories.add("holiday")
+            categories.add("national_holiday")
+        }
         if (allSelectedSchedules.isNotEmpty()) {
             categories.add("personal")
         }
-        val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
-                dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
 
-        if (allSelectedSchedules.isNotEmpty()) {
-            allSchedules.mapValues { (_, descriptions) ->
-                descriptions.split(my_sep).filter { desc ->
-                    val parts = desc.split('|', limit = 2)
-                    if (parts.size < 2) return@filter false
-                    val category = parts[0]
-                    val title = parts[1]
-                    if (category == "personal") {
-                        title in allSelectedSchedules
-                    } else { // holiday
-                        true
-                    }
-                }.joinToString(my_sep)
-            }.filterValues { it.isNotBlank() }
+        if (categories.isEmpty()) {
+            emptyMap<LocalDate, String>()
         } else {
-            allSchedules
+            val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
+                    dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
+
+            if (allSelectedSchedules.isNotEmpty()) {
+                allSchedules.mapValues { (_, descriptions) ->
+                    descriptions.split(my_sep).filter { desc ->
+                        val parts = desc.split('|', limit = 2)
+                        if (parts.size < 2) return@filter false
+                        val category = parts[0]
+                        val title = parts[1]
+                        if (category == "personal") {
+                            title in allSelectedSchedules
+                        } else { // holiday or national_holiday
+                            true
+                        }
+                    }.joinToString(my_sep)
+                }.filterValues { it.isNotBlank() }
+            } else {
+                allSchedules
+            }
         }
     }
 

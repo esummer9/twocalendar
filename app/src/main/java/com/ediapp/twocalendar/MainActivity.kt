@@ -6,10 +6,8 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +26,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
@@ -190,139 +187,71 @@ class MainActivity : ComponentActivity() {
 fun PersonalScheduleSelectionDialog(
     allSchedules: List<String>,
     selectedSchedules: List<String>,
+    showHolidays: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (List<String>) -> Unit
+    onConfirm: (List<String>, Boolean) -> Unit
 ) {
     var currentSelection by remember { mutableStateOf(selectedSchedules.toSet()) }
-//    Log.d("PersonalScheduleSelectionDialog", "allSchedules: $allSchedules")
+    var holidaysChecked by remember { mutableStateOf(showHolidays) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("일정보기 선택") },
         text = {
-            LazyColumn {
-                items(allSchedules) { schedule ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val newSelection = currentSelection.toMutableSet()
-                                if (schedule in newSelection) {
-                                    newSelection.remove(schedule)
-                                } else {
-                                    newSelection.add(schedule)
-                                }
-                                currentSelection = newSelection
-                            }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Checkbox(
-                            checked = schedule in currentSelection,
-                            onCheckedChange = { isChecked ->
-                                val newSelection = currentSelection.toMutableSet()
-                                if (isChecked) {
-                                    newSelection.add(schedule)
-                                } else {
-                                    newSelection.remove(schedule)
-                                }
-                                currentSelection = newSelection
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(schedule)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(currentSelection.toList()) }) {
-                Text("확인")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        }
-    )
-}
-
-@Composable
-fun DisplayOptionsDialog(
-    showPersonalSchedulesCal: Boolean,
-    showPersonalSchedules: Boolean,
-    showHolidays: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: (showPersonalCal: Boolean, showPersonal: Boolean, showHolidays: Boolean) -> Unit
-) {
-    var tempShowPersonalCal by remember { mutableStateOf(showPersonalSchedulesCal) }
-    var tempShowPersonal by remember { mutableStateOf(showPersonalSchedules) }
-    var tempShowHolidays by remember { mutableStateOf(showHolidays) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("표시 옵션") },
-        text = {
             Column {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Text("개인일정", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { tempShowPersonalCal = !tempShowPersonalCal }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Checkbox(
-                            checked = tempShowPersonalCal,
-                            onCheckedChange = { tempShowPersonalCal = it }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("달력에 표시")
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { tempShowPersonal = !tempShowPersonal }
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Checkbox(
-                            checked = tempShowPersonal,
-                            onCheckedChange = { tempShowPersonal = it }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("텍스트로 표시")
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { tempShowHolidays = !tempShowHolidays }
+                        .clickable { holidaysChecked = !holidaysChecked }
                         .padding(vertical = 8.dp)
                 ) {
                     Checkbox(
-                        checked = tempShowHolidays,
-                        onCheckedChange = { tempShowHolidays = it }
+                        checked = holidaysChecked,
+                        onCheckedChange = { holidaysChecked = it }
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("공휴일 텍스트 표시")
+                    Text("공휴일")
+                }
+
+                LazyColumn {
+                    items(allSchedules) { schedule ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newSelection = currentSelection.toMutableSet()
+                                    if (schedule in newSelection) {
+                                        newSelection.remove(schedule)
+                                    } else {
+                                        newSelection.add(schedule)
+                                    }
+                                    currentSelection = newSelection
+                                }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Checkbox(
+                                checked = schedule in currentSelection,
+                                onCheckedChange = { isChecked ->
+                                    val newSelection = currentSelection.toMutableSet()
+                                    if (isChecked) {
+                                        newSelection.add(schedule)
+                                    } else {
+                                        newSelection.remove(schedule)
+                                    }
+                                    currentSelection = newSelection
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(schedule)
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(tempShowPersonalCal, tempShowPersonal, tempShowHolidays) }) {
+            TextButton(onClick = { onConfirm(currentSelection.toList(), holidaysChecked) }) {
                 Text("확인")
             }
         },
@@ -347,14 +276,9 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showHolidays by remember { mutableStateOf(true) }
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var scheduleUpdateTrigger by remember { mutableStateOf(0) }
-
-    var showDisplayOptionsDialog by remember { mutableStateOf(false) }
-    var displayPersonalSchedulesCal by remember { mutableStateOf(true) }
-    var displayPersonalSchedules by remember { mutableStateOf(true) }
-    var displayHolidays by remember { mutableStateOf(true) }
-    var isSharingFlow by remember { mutableStateOf(false) }
 
     if (showScheduleDialog) {
         val allSchedules by produceState<List<String>>(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
@@ -366,37 +290,18 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
         PersonalScheduleSelectionDialog(
             allSchedules = allSchedules,
             selectedSchedules = selectedSchedules,
+            showHolidays = showHolidays,
             onDismiss = {
                 showScheduleDialog = false
-                isSharingFlow = false
             },
-            onConfirm = { newSelection ->
+            onConfirm = { newSelection, newShowHolidays ->
                 selectedSchedules = newSelection
+                showHolidays = newShowHolidays
                 showScheduleDialog = false
-                if (isSharingFlow) {
-                    isSharingFlow = false
-                    coroutineScope.launch {
-                        captureAndShare(view, context)
-                    }
-                }
             }
         )
     }
 
-    if (showDisplayOptionsDialog) {
-        DisplayOptionsDialog(
-            showPersonalSchedulesCal = displayPersonalSchedulesCal,
-            showPersonalSchedules = displayPersonalSchedules,
-            showHolidays = displayHolidays,
-            onDismiss = { showDisplayOptionsDialog = false },
-            onConfirm = { showPersonalCal, showPersonal, showHolidays ->
-                displayPersonalSchedulesCal = showPersonalCal
-                displayPersonalSchedules = showPersonal
-                displayHolidays = showHolidays
-                showDisplayOptionsDialog = false
-            }
-        )
-    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -430,13 +335,15 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showDisplayOptionsDialog = true }) {
+                    IconButton(onClick = {
+                        showScheduleDialog = true
+                    }) {
                         Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
                     }
-
                     IconButton(onClick = {
-                        isSharingFlow = true
-                        showScheduleDialog = true
+                        coroutineScope.launch {
+                            captureAndShare(view, context)
+                        }
                     }) {
                         Icon(Icons.Default.Share, contentDescription = "공유")
                     }
@@ -491,6 +398,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     fetchHolidaysForYear = fetchHolidaysForYear,
                     visibleCalList = true,
                     selectedPersonalSchedules = selectedSchedules,
+                    showHolidays = showHolidays,
                     onMonthChanged = { currentYearMonth = it }
                 )
                 1 -> TodayFragment()
