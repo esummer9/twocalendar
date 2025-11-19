@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -296,14 +298,27 @@ fun PersonalScheduleScreen(
                     IconButton(onClick = onPrevMonth) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전달")
                     }
-                    IconButton(onClick = onThisMonth) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.dot),
-                            contentDescription = "이번달",
-                            modifier = Modifier.size(15.dp),
-                            tint = Color.Unspecified
-                        )
+                    Button(
+                        onClick = onThisMonth,
+                        modifier = Modifier.size(50.dp),
+                        contentPadding = PaddingValues(2.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.rectangle),
+                                contentDescription = "이번달 배경",
+                                modifier = Modifier.size(44.dp),
+                                tint = Color.Unspecified
+                            )
+                            Text(
+                                text = LocalDate.now().monthValue.toString().padStart(2, '0'),
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
+
                     IconButton(onClick = onNextMonth) {
                         Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
                     }

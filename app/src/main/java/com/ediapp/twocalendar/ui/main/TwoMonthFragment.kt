@@ -7,9 +7,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -181,17 +184,29 @@ fun TwoMonthFragment(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically,) {
                     IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
                     }
-                    IconButton(onClick = { baseMonth = YearMonth.now() }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.dot),
-                            contentDescription = "이번달",
-                            modifier = Modifier.size(15.dp),
-                            tint = Color.Unspecified
-                        )
+                    Button(
+                        onClick = { baseMonth = YearMonth.now() },
+                        modifier = Modifier.size(50.dp),
+                        contentPadding = PaddingValues(2.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.rectangle),
+                                contentDescription = "이번달 배경",
+                                modifier = Modifier.size(44.dp),
+                                tint = Color.Unspecified
+                            )
+                            Text(
+                                text = LocalDate.now().monthValue.toString().padStart(2, '0'),
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                     IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
                         Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
