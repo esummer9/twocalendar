@@ -356,10 +356,12 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                 .then(
                                     if (isToday) {
                                         Modifier.drawBehind { // This is not a composable function
-                                            drawCircle(
-                                                color = primaryColor, // Use the color here
-                                                radius = size.minDimension / 2f,
-                                                style = Stroke(width = 1.5.dp.toPx())
+                                            val barHeight = 5.dp.toPx()
+                                            val barWidth = size.width * 0.8f
+                                            drawRect(
+                                                color = Color.LightGray,
+                                                topLeft = Offset(x = (size.width - barWidth) / 2, y = size.height - barHeight),
+                                                size = Size(width = barWidth, height = barHeight)
                                             )
                                         }
                                     } else if (holiday != null) {
@@ -387,7 +389,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                 verticalArrangement = Arrangement.Top
                             ) {
                                 val color = when {
-                                    isToday -> primaryColor
+                                    isToday -> Color.Black
                                     holiday != null -> dayColor
                                     dayOfWeek == 0 -> Color.Red
                                     dayOfWeek == 6 -> Color.Blue
