@@ -187,6 +187,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val db = this.readableDatabase
         val titles = mutableListOf<String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
+
+//        val monthStr2 = String.format("%04d-%02d", yearMonth.year, yearMonth.plusMonths(1))
+
+
+//        Log.d("monthStr", "monthStr 1,2 : $monthStr, $monthStr2")
+
+
+
         val cursor = db.query(
             TABLE_NAME,
             arrayOf("DISTINCT $COL_TITLE"),

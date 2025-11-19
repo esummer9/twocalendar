@@ -200,6 +200,7 @@ fun TwoMonthFragment(
             }
 
             MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
+            Log.d("holidays2", "firstMonth : $holidays")
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = firstMonth)
             }
@@ -217,7 +218,7 @@ fun TwoMonthFragment(
                 fontSize = 16.sp
             )
             MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
-
+            Log.d("holidays3", "secondMonth : $holidays")
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = secondMonth)
             }

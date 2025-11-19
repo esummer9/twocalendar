@@ -283,7 +283,13 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
     if (showScheduleDialog) {
         val allSchedules by produceState<List<String>>(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
             value = withContext(Dispatchers.IO) {
-                dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth)
+
+
+//                val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
+//                        dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
+
+
+                dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth) + dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth.plusMonths(1))
             }
         }
 
