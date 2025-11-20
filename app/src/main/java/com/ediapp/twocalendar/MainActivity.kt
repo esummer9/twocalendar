@@ -35,6 +35,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,7 +50,9 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,8 +81,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 
@@ -272,6 +278,7 @@ fun PersonalScheduleSelectionDialog(
 }
 
 // New Composable for adding personal schedules
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPersonalScheduleDialog(
     onDismiss: () -> Unit,
@@ -292,27 +299,65 @@ fun AddPersonalScheduleDialog(
         }, year, month, day
     )
 
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("개인일정 추가") },
         text = {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("날짜: ${selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)}")
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { datePickerDialog.show() }) {
-                        Text("선택")
-                    }
+                Box {
+                    TextField(
+                        value = selectedDate.toString(),
+                        onValueChange = {},
+                        label = { Text("날짜") },
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(onClick = { showDatePicker = true })
+                    )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
+                TextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("제목") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+
         },
         confirmButton = {
             TextButton(
