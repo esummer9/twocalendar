@@ -1,10 +1,14 @@
 package com.ediapp.twocalendar
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,12 +26,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -56,7 +63,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -118,7 +129,11 @@ class PersonalScheduleActivity : ComponentActivity() {
                         refreshTrigger++
                     },
                     onAdd = { date, title ->
-                        dbHelper.addPersonalSchedule(date, title) // TODO: Implement addPersonalSchedule in DatabaseHelper
+                        dbHelper.addPersonalSchedule(date, title)
+                        refreshTrigger++
+                    },
+                    onDuplicate = { date, title ->
+                        dbHelper.addPersonalSchedule(date, title)
                         refreshTrigger++
                     }
                 )
@@ -214,6 +229,112 @@ fun AddScheduleDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun DuplicateScheduleDialog(
+    schedule: Pair<LocalDate, Schedule>,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, String) -> Unit
+) {
+    var newDate by remember { mutableStateOf(schedule.first) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("일정 복제") },
+        text = {
+            Column {
+                Text("'${schedule.second.title}' 일정을 복제할 날짜를 선택하세요.")
+                Spacer(modifier = Modifier.height(16.dp))
+                Box {
+                    TextField(
+                        value = newDate.toString(),
+                        onValueChange = {},
+                        label = { Text("새 날짜") },
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(onClick = { showDatePicker = true })
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(newDate, schedule.second.title)
+                    onDismiss()
+                }
+            ) {
+                Text("복제")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
+
+@Composable
+fun QrCodeDialog(schedule: Pair<LocalDate, Schedule>, onDismiss: () -> Unit) {
+    val qrCodeBitmap = remember {
+        val text = "${schedule.first}|${schedule.second.title}"
+        val size = 512
+        val hints = mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")
+        val bitMatrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, hints)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                bitmap.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bitmap
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.size(300.dp)) {
+            Image(
+                bitmap = qrCodeBitmap.asImageBitmap(),
+                contentDescription = "QR Code",
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
 fun PersonalScheduleScreen(
     schedules: List<Pair<LocalDate, Schedule>>,
     baseMonth: YearMonth,
@@ -222,10 +343,15 @@ fun PersonalScheduleScreen(
     onThisMonth: () -> Unit,
     onBack: () -> Unit,
     onDelete: (LocalDate, String) -> Unit,
-    onAdd: (LocalDate, String) -> Unit
+    onAdd: (LocalDate, String) -> Unit,
+    onDuplicate: (LocalDate, String) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, String>?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showDuplicateDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
+    var showQrCodeDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
+    var expandedItem by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
+
 
     if (showDeleteDialog != null) {
         AlertDialog(
@@ -258,6 +384,21 @@ fun PersonalScheduleScreen(
                 showAddDialog = false
             }
         )
+    }
+
+    if (showDuplicateDialog != null) {
+        DuplicateScheduleDialog(
+            schedule = showDuplicateDialog!!,
+            onDismiss = { showDuplicateDialog = null },
+            onConfirm = { date, title ->
+                onDuplicate(date, title)
+                showDuplicateDialog = null
+            }
+        )
+    }
+
+    if (showQrCodeDialog != null) {
+        QrCodeDialog(schedule = showQrCodeDialog!!, onDismiss = { showQrCodeDialog = null })
     }
 
     Scaffold(
@@ -331,70 +472,95 @@ fun PersonalScheduleScreen(
                 )
             } else {
                 val today = LocalDate.now()
-                LazyColumn(
-                ) {
+                LazyColumn {
                     items(schedules) { (date, schedule) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // 1번째 컬럼: D-day 값
-                            val daysDiff = ChronoUnit.DAYS.between(date, today)
-                            val diffText = when {
-                                daysDiff == 0L -> "오늘"
-                                daysDiff > 0L -> "D+$daysDiff"
-                                else -> "D$daysDiff"
-                            }
-                            val diffColor = when {
-                                daysDiff < 0L -> Color.Gray
-                                daysDiff == 0L -> Color.Red
-                                daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
-                                else -> Color.Unspecified
-                            }
-
-                            Text(
-                                text = diffText,
-                                color = diffColor,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(0.25f)
-                            )
-
-                            // 2번째 컬럼: 날짜/요일 및 제목
-                            Column(
+                        Box {
+                            Row(
                                 modifier = Modifier
-                                    .weight(0.75f)
-                                    .padding(horizontal = 8.dp)
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { /* No action on simple click */ },
+                                        onLongClick = { expandedItem = date to schedule }
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val dayOfWeek = date.dayOfWeek
-                                val dayOfWeekText = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
-                                val dayOfWeekColor = when (dayOfWeek) {
-                                    DayOfWeek.SATURDAY -> Color.Blue
-                                    DayOfWeek.SUNDAY -> Color.Red
+                                // 1번째 컬럼: D-day 값
+                                val daysDiff = ChronoUnit.DAYS.between(date, today)
+                                val diffText = when {
+                                    daysDiff == 0L -> "오늘"
+                                    daysDiff > 0L -> "D+$daysDiff"
+                                    else -> "D$daysDiff"
+                                }
+                                val diffColor = when {
+                                    daysDiff < 0L -> Color.Gray
+                                    daysDiff == 0L -> Color.Red
+                                    daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
                                     else -> Color.Unspecified
                                 }
+
                                 Text(
-                                    text = buildAnnotatedString {
-                                        append(date.toString())
-                                        append(" (")
-                                        withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
-                                            append(dayOfWeekText)
-                                        }
-                                        append(")")
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = diffText,
+                                    color = diffColor,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(0.25f)
                                 )
-                                Text(
-                                    text = schedule.title,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+
+                                // 2번째 컬럼: 날짜/요일 및 제목
+                                Column(
+                                    modifier = Modifier
+                                        .weight(0.75f)
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    val dayOfWeek = date.dayOfWeek
+                                    val dayOfWeekText = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+                                    val dayOfWeekColor = when (dayOfWeek) {
+                                        DayOfWeek.SATURDAY -> Color.Blue
+                                        DayOfWeek.SUNDAY -> Color.Red
+                                        else -> Color.Unspecified
+                                    }
+                                    Text(
+                                        text = buildAnnotatedString {
+                                            append(date.toString())
+                                            append(" (")
+                                            withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
+                                                append(dayOfWeekText)
+                                            }
+                                            append(")")
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = schedule.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+
+                                // 3번째 컬럼: 공유 버튼
+                                IconButton(onClick = { showQrCodeDialog = date to schedule }) {
+                                    Icon(Icons.Default.Share, contentDescription = "공유")
+                                }
                             }
 
-                            // 3번째 컬럼: 삭제 버튼
-                            IconButton(onClick = { showDeleteDialog = date to schedule.title }) {
-                                Icon(Icons.Default.Delete, contentDescription = "삭제")
+                            DropdownMenu(
+                                expanded = expandedItem == date to schedule,
+                                onDismissRequest = { expandedItem = null }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("삭제") },
+                                    onClick = {
+                                        showDeleteDialog = date to schedule.title
+                                        expandedItem = null
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("복제") },
+                                    onClick = {
+                                        showDuplicateDialog = date to schedule
+                                        expandedItem = null
+                                    }
+                                )
                             }
                         }
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -423,7 +589,8 @@ fun PersonalScheduleScreenPreview() {
             onThisMonth = {},
             onBack = {},
             onDelete = { _, _ -> },
-            onAdd = { _, _ -> }
+            onAdd = { _, _ -> },
+            onDuplicate = { _, _ -> }
         )
     }
 }
