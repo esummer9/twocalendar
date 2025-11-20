@@ -88,7 +88,7 @@ fun AddScheduleDialog(
     initialDate: LocalDate? = null
 ) {
     var title by remember { mutableStateOf("") }
-    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now()) }
+    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now(ZoneOffset.UTC)) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
