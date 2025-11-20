@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width // Added missing import
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack // Changed import
-import androidx.compose.material.icons.automirrored.filled.ArrowForward // Changed import
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -35,7 +36,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf // Changed import
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,7 +61,6 @@ import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
-import androidx.compose.material3.Switch
 
 
 @Composable
@@ -72,7 +72,7 @@ fun TwoMonthFragment(
     showHolidays: Boolean,
     onMonthChanged: (YearMonth) -> Unit,
     onNavigateToPersonalSchedule: (LocalDate) -> Unit,
-    scheduleUpdateTrigger: Int // Add this parameter
+    scheduleUpdateTrigger: Int
 ) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
@@ -85,7 +85,7 @@ fun TwoMonthFragment(
     // HolidayList의 가시성을 제어하는 상태 변수
     var showHolidayListInMonth by remember { mutableStateOf(true) }
 
-    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays, scheduleUpdateTrigger) { // Add scheduleUpdateTrigger here
+    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays, scheduleUpdateTrigger) {
         val allSelectedSchedules = selectedPersonalSchedules + newlyAddedSchedules
 
         val categories = mutableListOf<String>()
@@ -97,7 +97,7 @@ fun TwoMonthFragment(
         }
 
         if (categories.isEmpty()) {
-            emptyMap<LocalDate, String>()
+            emptyMap()
         } else {
             val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
                     dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
@@ -148,7 +148,7 @@ fun TwoMonthFragment(
 
     Scaffold {
         val scrollState = rememberScrollState()
-        var offsetX by remember { mutableFloatStateOf(0f) } // Changed to mutableFloatStateOf
+        var offsetX by remember { mutableFloatStateOf(0f) }
         Column(
             modifier = modifier
                 .padding(it)
@@ -185,9 +185,9 @@ fun TwoMonthFragment(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) { // Removed trailing comma
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전달") // Changed to AutoMirrored
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전달")
                     }
                     Button(
                         onClick = { baseMonth = YearMonth.now() },
@@ -210,7 +210,7 @@ fun TwoMonthFragment(
                         }
                     }
                     IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "다음달") // Changed to AutoMirrored
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "다음달")
                     }
                 }
             }
@@ -218,20 +218,20 @@ fun TwoMonthFragment(
             MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
 //            Log.d("holidays2", "firstMonth : $holidays")
             if(visibleCalList) {
+                HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInMonth)
                 Row(modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Text(text = "공휴일 목록 보기")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = showHolidayListInMonth,
-                        onCheckedChange = { showHolidayListInMonth = it }
-                    )
+                    IconButton(onClick = { showHolidayListInMonth = !showHolidayListInMonth }) {
+                        Icon(
+                            imageVector = if (!showHolidayListInMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            contentDescription = "공휴일 목록 보기 토글"
+                        )
+                    }
                 }
-                HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInMonth)
             }
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -249,20 +249,20 @@ fun TwoMonthFragment(
             MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
 //            Log.d("holidays3", "secondMonth : $holidays")
             if(visibleCalList) {
+                HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInMonth)
                 Row(modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Text(text = "공휴일 목록 보기")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = showHolidayListInMonth,
-                        onCheckedChange = { showHolidayListInMonth = it }
-                    )
+                    IconButton(onClick = { showHolidayListInMonth = !showHolidayListInMonth }) {
+                        Icon(
+                            imageVector = if (!showHolidayListInMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            contentDescription = "공휴일 목록 보기 토글"
+                        )
+                    }
                 }
-                HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInMonth)
             }
 
         }
@@ -328,7 +328,6 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
     val firstDayOfMonth = yearMonth.atDay(1)
     val startDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // Sunday = 0, Monday = 1, ...
     val today = LocalDate.now()
-    // val primaryColor = MaterialTheme.colorScheme.primary // Removed unused variable
 
     Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
         // Header
