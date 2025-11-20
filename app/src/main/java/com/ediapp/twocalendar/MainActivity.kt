@@ -364,8 +364,6 @@ fun AddPersonalScheduleDialog(
                 onClick = {
                     if (title.isNotBlank()) {
                         onConfirm(selectedDate, title)
-                    } else {
-                        // Optionally show a toast or error message if title is empty
                     }
                 }
             ) {
@@ -387,7 +385,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("1+1 달", "오늘", "개인일정")
-    val pagerState = rememberPagerState { tabTitles.size }
+    val pagerState = rememberPagerState(initialPage = 1) { tabTitles.size }
     // val view = LocalView.current // Removed unused variable and its import
 
     var showScheduleDialog by remember { mutableStateOf(false) }
@@ -535,8 +533,8 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                 .fillMaxWidth(),
             userScrollEnabled = false,
             verticalAlignment = Alignment.Top
-        ) { page ->
-            when (page) {
+        ) {
+            when (it) {
                 0 -> TwoMonthFragment(
                     modifier = Modifier.fillMaxHeight(),
                     fetchHolidaysForYear = fetchHolidaysForYear,
