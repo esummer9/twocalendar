@@ -27,6 +27,7 @@
         <activity android:name=".ScheduleListActivity" android:label="일정목록" />
         <activity android:name=".PersonalScheduleActivity" android:label="개인일정" />
         <activity android:name=".SettingsActivity" android:label="설정" />
+        <activity android:name=".BackupActivity" android:label="백업하기" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -1,6 +1,5 @@
 package com.ediapp.twocalendar.ui.main
 
-import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -56,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ediapp.twocalendar.Constants.my_sep
 import com.ediapp.twocalendar.DatabaseHelper
-import com.ediapp.twocalendar.PersonalScheduleActivity
 import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.LocalTime
@@ -70,7 +68,9 @@ fun TwoMonthFragment(
     visibleCalList: Boolean,
     selectedPersonalSchedules: List<String>,
     showHolidays: Boolean,
-    onMonthChanged: (YearMonth) -> Unit
+    onMonthChanged: (YearMonth) -> Unit,
+    onNavigateToPersonalSchedule: (LocalDate) -> Unit,
+    scheduleUpdateTrigger: Int // Add this parameter
 ) {
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     val context = LocalContext.current
@@ -80,7 +80,7 @@ fun TwoMonthFragment(
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
 
-    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays) {
+    val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays, scheduleUpdateTrigger) { // Add scheduleUpdateTrigger here
         val allSelectedSchedules = selectedPersonalSchedules + newlyAddedSchedules
 
         val categories = mutableListOf<String>()
@@ -125,11 +125,7 @@ fun TwoMonthFragment(
     val onDateClick = { date: LocalDate ->
         val holiday = holidays[date]
         if (holiday?.contains("personal") == true) {
-            val intent = Intent(context, PersonalScheduleActivity::class.java).apply {
-                putExtra("year", date.year)
-                putExtra("month", date.monthValue)
-            }
-            context.startActivity(intent)
+            onNavigateToPersonalSchedule(date) // Call the new callback
         }
     }
 

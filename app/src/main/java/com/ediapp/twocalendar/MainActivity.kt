@@ -1,8 +1,10 @@
 package com.ediapp.twocalendar
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.DatePicker
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,8 +30,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Share
+// import androidx.compose.material.icons.filled.Share // Removed unused import
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -38,6 +41,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -48,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf // Import mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -56,12 +61,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+// import androidx.compose.ui.platform.LocalView // Removed unused import
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
 import com.ediapp.twocalendar.ui.main.TwoMonthFragment
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
@@ -71,7 +77,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
+import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
@@ -84,8 +92,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val andorid_id = getAndroidId(this)
-        Log.d(TAG, "Android ID: $andorid_id")
+        val androidId = getAndroidId(this) // Renamed variable
+        Log.d(TAG, "Android ID: $androidId")
 
         enableEdgeToEdge()
         setContent {
@@ -263,6 +271,69 @@ fun PersonalScheduleSelectionDialog(
     )
 }
 
+// New Composable for adding personal schedules
+@Composable
+fun AddPersonalScheduleDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, String) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var title by remember { mutableStateOf("") }
+
+    val year = selectedDate.year
+    val month = selectedDate.monthValue - 1 // DatePickerDialog month is 0-indexed
+    val day = selectedDate.dayOfMonth
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
+            selectedDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDayOfMonth)
+        }, year, month, day
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("개인일정 추가") },
+        text = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("날짜: ${selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)}")
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { datePickerDialog.show() }) {
+                        Text("선택")
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("제목") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onConfirm(selectedDate, title)
+                    } else {
+                        // Optionally show a toast or error message if title is empty
+                    }
+                }
+            ) {
+                Text("저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -270,25 +341,22 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("1+1 달", "오늘")
+    val tabTitles = listOf("1+1 달", "오늘", "개인일정")
     val pagerState = rememberPagerState { tabTitles.size }
-    val view = LocalView.current
+    // val view = LocalView.current // Removed unused variable and its import
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
     var showHolidays by remember { mutableStateOf(true) }
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
-    var scheduleUpdateTrigger by remember { mutableStateOf(0) }
+    var scheduleUpdateTrigger by remember { mutableIntStateOf(0) } // Changed to mutableIntStateOf
+    var selectedDateForPersonalSchedule by remember { mutableStateOf<LocalDate?>(null) }
+    var showAddScheduleDialog by remember { mutableStateOf(false) }
+
 
     if (showScheduleDialog) {
-        val allSchedules by produceState<List<String>>(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
+        val allSchedules by produceState(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) { // Removed explicit type arguments
             value = withContext(Dispatchers.IO) {
-
-
-//                val allSchedules = dbHelper.getDaysForCategoryMonth(baseMonth, categories) +
-//                        dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), categories)
-
-
                 dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth) + dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth.plusMonths(1))
             }
         }
@@ -304,6 +372,25 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                 selectedSchedules = newSelection
                 showHolidays = newShowHolidays
                 showScheduleDialog = false
+            }
+        )
+    }
+
+    if (showAddScheduleDialog) {
+        AddPersonalScheduleDialog(
+            onDismiss = { showAddScheduleDialog = false },
+            onConfirm = { date, title ->
+                coroutineScope.launch(Dispatchers.IO) {
+                    dbHelper.addDay(
+                        source = "user_input",
+                        category = "personal",
+                        type = "date",
+                        dataKey = date.format(DateTimeFormatter.ofPattern("yyyyMMdd")), // YYYYMMDD format
+                        title = title
+                    )
+                    scheduleUpdateTrigger++
+                }
+                showAddScheduleDialog = false
             }
         )
     }
@@ -324,16 +411,16 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("개인일정") },
+                                text = { Text("설정") },
                                 onClick = {
-                                    context.startActivity(Intent(context, PersonalScheduleActivity::class.java))
+                                    context.startActivity(Intent(context, SettingsActivity::class.java))
                                     menuExpanded = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("설정") },
+                                text = { Text("백업하기") },
                                 onClick = {
-                                    context.startActivity(Intent(context, SettingsActivity::class.java))
+                                    context.startActivity(Intent(context, BackupActivity::class.java))
                                     menuExpanded = false
                                 }
                             )
@@ -348,12 +435,17 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                             Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
                         }
                     }
+//                    IconButton(onClick = {
+//                        coroutineScope.launch {
+//                            captureAndShare(view, context)
+//                        }
+//                    }) {
+//                        Icon(Icons.Default.Share, contentDescription = "공유")
+//                    }
                     IconButton(onClick = {
-                        coroutineScope.launch {
-                            captureAndShare(view, context)
-                        }
+                        showAddScheduleDialog = true
                     }) {
-                        Icon(Icons.Default.Share, contentDescription = "공유")
+                        Icon(painter = painterResource(id = R.drawable.add), contentDescription = "개인일정 추가")
                     }
                 }
             )
@@ -383,8 +475,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                         selected = pagerState.currentPage == index,
                         onClick = {
                             coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
+                                pagerState.animateScrollToPage(index)                            }
                         },
                         text = { Text(text = title) }
                     )
@@ -407,9 +498,21 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     visibleCalList = true,
                     selectedPersonalSchedules = selectedSchedules,
                     showHolidays = showHolidays,
-                    onMonthChanged = { currentYearMonth = it }
+                    onMonthChanged = { currentYearMonth = it },
+                    onNavigateToPersonalSchedule = { date ->
+                        selectedDateForPersonalSchedule = date
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(2)
+                        }
+                    },
+                    scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
                 )
                 1 -> TodayFragment()
+                2 -> PersonalScheduleFragment(
+                    modifier = Modifier.fillMaxHeight(),
+                    selectedDate = selectedDateForPersonalSchedule,
+                    scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
+                )
             }
         }
     }
