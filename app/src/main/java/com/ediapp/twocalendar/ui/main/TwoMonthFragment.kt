@@ -10,16 +10,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width // Added missing import
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack // Changed import
+import androidx.compose.material.icons.automirrored.filled.ArrowForward // Changed import
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,6 +35,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf // Changed import
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +60,7 @@ import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
+import androidx.compose.material3.Switch
 
 
 @Composable
@@ -79,6 +81,9 @@ fun TwoMonthFragment(
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
+
+    // HolidayList의 가시성을 제어하는 상태 변수
+    var showHolidayListInMonth by remember { mutableStateOf(true) }
 
     val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays, scheduleUpdateTrigger) { // Add scheduleUpdateTrigger here
         val allSelectedSchedules = selectedPersonalSchedules + newlyAddedSchedules
@@ -143,7 +148,7 @@ fun TwoMonthFragment(
 
     Scaffold {
         val scrollState = rememberScrollState()
-        var offsetX by remember { mutableStateOf(0f) }
+        var offsetX by remember { mutableFloatStateOf(0f) } // Changed to mutableFloatStateOf
         Column(
             modifier = modifier
                 .padding(it)
@@ -180,9 +185,9 @@ fun TwoMonthFragment(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-                Row(verticalAlignment = Alignment.CenterVertically,) {
+                Row(verticalAlignment = Alignment.CenterVertically) { // Removed trailing comma
                     IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "이전달")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전달") // Changed to AutoMirrored
                     }
                     Button(
                         onClick = { baseMonth = YearMonth.now() },
@@ -205,15 +210,28 @@ fun TwoMonthFragment(
                         }
                     }
                     IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
-                        Icon(Icons.Filled.ArrowForward, contentDescription = "다음달")
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "다음달") // Changed to AutoMirrored
                     }
                 }
             }
 
             MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
-            Log.d("holidays2", "firstMonth : $holidays")
+//            Log.d("holidays2", "firstMonth : $holidays")
             if(visibleCalList) {
-                HolidayList(holidays = holidays, yearMonth = firstMonth)
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(text = "공휴일 목록 보기")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = showHolidayListInMonth,
+                        onCheckedChange = { showHolidayListInMonth = it }
+                    )
+                }
+                HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInMonth)
             }
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -229,9 +247,22 @@ fun TwoMonthFragment(
                 fontSize = 16.sp
             )
             MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
-            Log.d("holidays3", "secondMonth : $holidays")
+//            Log.d("holidays3", "secondMonth : $holidays")
             if(visibleCalList) {
-                HolidayList(holidays = holidays, yearMonth = secondMonth)
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(text = "공휴일 목록 보기")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = showHolidayListInMonth,
+                        onCheckedChange = { showHolidayListInMonth = it }
+                    )
+                }
+                HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInMonth)
             }
 
         }
@@ -297,7 +328,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
     val firstDayOfMonth = yearMonth.atDay(1)
     val startDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // Sunday = 0, Monday = 1, ...
     val today = LocalDate.now()
-    val primaryColor = MaterialTheme.colorScheme.primary
+    // val primaryColor = MaterialTheme.colorScheme.primary // Removed unused variable
 
     Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
         // Header
@@ -422,25 +453,27 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
 }
 
 @Composable
-fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth) {
-    val monthHolidays = holidays.filter { (date, _) ->
-        date.year == yearMonth.year && date.month == yearMonth.month
-    }.mapNotNull { (date, description) ->
-        var holidayName = ""
-        description.split(my_sep).forEach { row ->
-            val nm = row.split("|")[1]
-            holidayName += if (holidayName == "") nm else ",$nm"
-        }
-        holidayName.let { date to it }
-    }.sortedBy { it.first.dayOfMonth }
-
-    if (monthHolidays.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            monthHolidays.forEach { (date, holidayName) ->
-                Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
+fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible: Boolean) {
+    if (visible) {
+        val monthHolidays = holidays.filter { (date, _) ->
+            date.year == yearMonth.year && date.month == yearMonth.month
+        }.mapNotNull { (date, description) ->
+            var holidayName = ""
+            description.split(my_sep).forEach { row ->
+                val nm = row.split("|")[1]
+                holidayName += if (holidayName == "") nm else ",$nm"
             }
+            holidayName.let { date to it }
+        }.sortedBy { it.first.dayOfMonth }
+
+        if (monthHolidays.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                monthHolidays.forEach { (date, holidayName) ->
+                    Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
     }
 }
