@@ -365,35 +365,30 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                                         onTap = { onDateClick(date) }
                                     )
                                 }
-                                .then(
+                                .drawBehind {
                                     if (isToday) {
-                                        Modifier.drawBehind { // This is not a composable function
-                                            val barHeight = 5.dp.toPx()
-                                            val barWidth = size.width * 0.8f
-                                            drawRect(
-                                                color = Color.LightGray,
-                                                topLeft = Offset(x = (size.width - barWidth) / 2, y = size.height - barHeight),
-                                                size = Size(width = barWidth, height = barHeight)
-                                            )
-                                        }
-                                    } else if (holiday != null) {
-                                        Modifier.drawBehind { // This is not a composable function
-                                            val margin = 5.dp.toPx()
-                                            drawRoundRect(
-                                                color = dayColor,
-                                                topLeft = Offset(margin, margin),
-                                                size = Size(
-                                                    size.width - (margin * 2),
-                                                    size.height - (margin * 2)
-                                                ),
-                                                cornerRadius = CornerRadius(8f, 8f),
-                                                style = Stroke(width = 1.5.dp.toPx())
-                                            )
-                                        }
-                                    } else {
-                                        Modifier
+                                        val barHeight = 5.dp.toPx()
+                                        val barWidth = size.width * 0.8f
+                                        drawRect(
+                                            color = Color.LightGray,
+                                            topLeft = Offset(x = (size.width - barWidth) / 2, y = size.height - barHeight),
+                                            size = Size(width = barWidth, height = barHeight)
+                                        )
                                     }
-                                ),
+                                    if (holiday != null) {
+                                        val margin = 5.dp.toPx()
+                                        drawRoundRect(
+                                            color = dayColor,
+                                            topLeft = Offset(margin, margin),
+                                            size = Size(
+                                                size.width - (margin * 2),
+                                                size.height - (margin * 2)
+                                            ),
+                                            cornerRadius = CornerRadius(8f, 8f),
+                                            style = Stroke(width = 1.5.dp.toPx())
+                                        )
+                                    }
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(

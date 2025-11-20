@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward // Use AutoMirrored version
-// Removed: import androidx.compose.material.icons.filled.Add
+// Removed: import androidx-compose-material-icons.filled.Add
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -72,8 +72,8 @@ import com.google.zxing.qrcode.QRCodeWriter
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.YearMonth
+import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -93,7 +93,7 @@ fun AddScheduleDialog(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -101,7 +101,7 @@ fun AddScheduleDialog(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let {
-                            selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                            selectedDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                         }
                         showDatePicker = false
                     }
@@ -168,6 +168,92 @@ fun AddScheduleDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun EditScheduleDialog(
+    schedule: Pair<LocalDate, Schedule>,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, String, LocalDate, String) -> Unit
+) {
+    var newTitle by remember { mutableStateOf(schedule.second.title) }
+    var newDate by remember { mutableStateOf(schedule.first) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = newDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            newDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("일정 수정") },
+        text = {
+            Column {
+                Box {
+                    TextField(
+                        value = newDate.toString(),
+                        onValueChange = {},
+                        label = { Text("날짜") },
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(onClick = { showDatePicker = true })
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TextField(
+                    value = newTitle,
+                    onValueChange = { newTitle = it },
+                    label = { Text("제목") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (newTitle.isNotBlank()) {
+                        onConfirm(schedule.first, schedule.second.title, newDate, newTitle)
+                    }
+                }
+            ) {
+                Text("수정")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun DuplicateScheduleDialog(
     schedule: Pair<LocalDate, Schedule>,
     onDismiss: () -> Unit,
@@ -178,15 +264,16 @@ fun DuplicateScheduleDialog(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = schedule.first.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         )
+
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let {
-                            newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                            newDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                         }
                         showDatePicker = false
                     }
@@ -314,6 +401,7 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
 
     var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, String>?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showDuplicateDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showQrCodeDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var expandedItem by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
@@ -352,6 +440,18 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                 showAddDialog = false
             },
             initialDate = selectedDate
+        )
+    }
+
+    if (showEditDialog != null) {
+        EditScheduleDialog(
+            schedule = showEditDialog!!,
+            onDismiss = { showEditDialog = null },
+            onConfirm = { oldDate, oldTitle, newDate, newTitle ->
+                dbHelper.updatePersonalSchedule(oldDate, oldTitle, newDate, newTitle)
+                refreshTrigger++
+                showEditDialog = null
+            }
         )
     }
 
@@ -500,9 +600,9 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                             onDismissRequest = { expandedItem = null }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("삭제") },
+                                text = { Text("수정") },
                                 onClick = {
-                                    showDeleteDialog = date to schedule.title
+                                    showEditDialog = date to schedule
                                     expandedItem = null
                                 }
                             )
@@ -510,6 +610,13 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                                 text = { Text("복제") },
                                 onClick = {
                                     showDuplicateDialog = date to schedule
+                                    expandedItem = null
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("삭제") },
+                                onClick = {
+                                    showDeleteDialog = date to schedule.title
                                     expandedItem = null
                                 }
                             )

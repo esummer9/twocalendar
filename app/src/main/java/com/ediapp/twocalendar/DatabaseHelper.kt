@@ -232,6 +232,20 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         db.insert(TABLE_NAME, null, values)
     }
 
+    fun updatePersonalSchedule(oldDate: LocalDate, oldTitle: String, newDate: LocalDate, newTitle: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_APPLY_DT, newDate.toString())
+            put(COL_TITLE, newTitle)
+        }
+        db.update(
+            TABLE_NAME,
+            values,
+            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
+            arrayOf("personal", oldDate.toString(), oldTitle)
+        )
+    }
+
     fun deletePersonalSchedule(date: LocalDate, title: String) {
         val db = this.writableDatabase
         db.delete(
