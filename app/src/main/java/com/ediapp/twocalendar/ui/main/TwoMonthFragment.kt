@@ -495,7 +495,7 @@ fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible:
                                             putExtra(CalendarContract.Events.TITLE, scheduleTitle)
                                             putExtra(CalendarContract.Events.ALL_DAY, true)
                                             val beginTime = date.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
-                                            val endTime = date.plusDays(1).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+                                            val endTime = date.plusDays(0).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
                                             putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTime)
                                             putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
                                         }
