@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward // Use AutoMirrored version
 // Removed: import androidx-compose-material-icons.filled.Add
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -591,7 +590,7 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
 
                             // 3번째 컬럼: 공유 버튼
                             IconButton(onClick = { showQrCodeDialog = date to schedule }) {
-                                Icon(Icons.Default.Share, contentDescription = "공유")
+                                Icon(painter = painterResource(id = R.drawable.qr_code), contentDescription = "QR Code")
                             }
                         }
 

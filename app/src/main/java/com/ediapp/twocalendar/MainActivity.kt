@@ -5,7 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.DatePicker
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -30,9 +32,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-// import androidx.compose.material.icons.filled.Share // Removed unused import
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
@@ -43,7 +43,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -56,7 +55,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf // Import mutableIntStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -65,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-// import androidx.compose.ui.platform.LocalView // Removed unused import
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -75,6 +73,8 @@ import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
 import com.ediapp.twocalendar.ui.main.TwoMonthFragment
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -282,11 +282,13 @@ fun PersonalScheduleSelectionDialog(
 @Composable
 fun AddPersonalScheduleDialog(
     onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String) -> Unit
+    onConfirm: (LocalDate, String) -> Unit,
+    initialTitle: String = "",
+    initialDate: LocalDate? = null
 ) {
     val context = LocalContext.current
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var title by remember { mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now()) }
+    var title by remember { mutableStateOf(initialTitle) }
 
     val year = selectedDate.year
     val month = selectedDate.monthValue - 1 // DatePickerDialog month is 0-indexed
@@ -386,19 +388,67 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("1+1 달", "오늘", "개인일정")
     val pagerState = rememberPagerState(initialPage = 1) { tabTitles.size }
-    // val view = LocalView.current // Removed unused variable and its import
 
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
     var showHolidays by remember { mutableStateOf(true) }
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
-    var scheduleUpdateTrigger by remember { mutableIntStateOf(0) } // Changed to mutableIntStateOf
+    var scheduleUpdateTrigger by remember { mutableIntStateOf(0) }
     var selectedDateForPersonalSchedule by remember { mutableStateOf<LocalDate?>(null) }
     var showAddScheduleDialog by remember { mutableStateOf(false) }
+    var qrCodeScheduleTitle by remember { mutableStateOf<String?>(null) }
+    var qrCodeScheduleDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    val qrCodeScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { contents ->
+            val parts = contents.split('|', limit = 2)
+            if (parts.size == 2) {
+                try {
+                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                    qrCodeScheduleDate = LocalDate.parse(parts[0], formatter)
+                    qrCodeScheduleTitle = parts[1]
+                } catch (e: Exception) {
+                    Toast.makeText(context, "날짜 형식 오류. yyyyMMdd 형식을 사용하세요.", Toast.LENGTH_LONG).show()
+                    qrCodeScheduleTitle = contents
+                    qrCodeScheduleDate = null
+                }
+            } else {
+                qrCodeScheduleTitle = contents
+                qrCodeScheduleDate = null
+            }
+        } ?: run {
+            Toast.makeText(context, "Cancelled", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    if (qrCodeScheduleTitle != null) {
+        AddPersonalScheduleDialog(
+            onDismiss = {
+                qrCodeScheduleTitle = null
+                qrCodeScheduleDate = null
+            },
+            onConfirm = { date, title ->
+                coroutineScope.launch(Dispatchers.IO) {
+                    dbHelper.addDay(
+                        source = "qr_code",
+                        category = "personal",
+                        type = "date",
+                        dataKey = date.format(DateTimeFormatter.ofPattern("yyyyMMdd")), // YYYYMMDD format
+                        title = title
+                    )
+                    scheduleUpdateTrigger++
+                }
+                qrCodeScheduleTitle = null
+                qrCodeScheduleDate = null
+            },
+            initialTitle = qrCodeScheduleTitle ?: "",
+            initialDate = qrCodeScheduleDate
+        )
+    }
 
 
     if (showScheduleDialog) {
-        val allSchedules by produceState(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) { // Removed explicit type arguments
+        val allSchedules by produceState(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
             value = withContext(Dispatchers.IO) {
                 dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth) + dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth.plusMonths(1))
             }
@@ -478,17 +528,18 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                             Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
                         }
                     } else {
-                        IconButton(onClick = { /* TODO: Handle QR code scan */ }) {
-                            Icon(painter = painterResource(id = R.drawable.qr_code), contentDescription = "QR Code Read")
+                        IconButton(onClick = {
+                            val options = ScanOptions()
+                            options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            options.setPrompt("공유받을 QR코드를 스캔하세요.")
+                            options.setCameraId(0) // Use a specific camera of the device
+                            options.setBeepEnabled(false)
+                            options.setBarcodeImageEnabled(true)
+                            qrCodeScannerLauncher.launch(options)
+                        }) {
+                            Icon(painter = painterResource(id = R.drawable.qr_code_read), contentDescription = "QR Code Read")
                         }
                     }
-//                    IconButton(onClick = {
-//                        coroutineScope.launch {
-//                            captureAndShare(view, context)
-//                        }
-//                    }) {
-//                        Icon(Icons.Default.Share, contentDescription = "공유")
-//                    }
                     IconButton(onClick = {
                         showAddScheduleDialog = true
                     }) {
