@@ -1,5 +1,7 @@
 package com.ediapp.twocalendar.ui.main
 
+import android.content.Intent
+import android.provider.CalendarContract
 import android.util.Log
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -21,7 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,6 +63,7 @@ import com.ediapp.twocalendar.R
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
+import java.time.ZoneId
 
 
 @Composable
@@ -460,23 +463,50 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
 
 @Composable
 fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible: Boolean) {
+    val context = LocalContext.current
     if (visible) {
-        val monthHolidays = holidays.filter { (date, _) ->
+        val monthSchedulesByDate = holidays.filter { (date, _) ->
             date.year == yearMonth.year && date.month == yearMonth.month
-        }.mapNotNull { (date, description) ->
-            var holidayName = ""
-            description.split(my_sep).forEach { row ->
-                val nm = row.split("|")[1]
-                holidayName += if (holidayName == "") nm else ",$nm"
-            }
-            holidayName.let { date to it }
-        }.sortedBy { it.first.dayOfMonth }
+        }.mapValues { (_, description) ->
+            description.split(my_sep).filter { it.isNotBlank() }
+        }.toList().sortedBy { it.first.dayOfMonth }
 
-        if (monthHolidays.isNotEmpty()) {
+        if (monthSchedulesByDate.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                monthHolidays.forEach { (date, holidayName) ->
-                    Text(text = "${date.dayOfMonth}일: $holidayName", fontSize = 14.sp)
+                monthSchedulesByDate.forEach { (date, schedules) ->
+                    schedules.forEach { scheduleDescription ->
+                        val parts = scheduleDescription.split('|', limit = 2)
+                        val type = parts.getOrNull(0)
+                        val scheduleTitle = parts.getOrNull(1)
+
+                        if (scheduleTitle != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "${date.dayOfMonth}일: $scheduleTitle", fontSize = 14.sp)
+
+                                if (type == "personal") {
+                                    IconButton(onClick = {
+                                        val intent = Intent(Intent.ACTION_INSERT).apply {
+                                            data = CalendarContract.Events.CONTENT_URI
+                                            putExtra(CalendarContract.Events.TITLE, scheduleTitle)
+                                            putExtra(CalendarContract.Events.ALL_DAY, true)
+                                            val beginTime = date.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+                                            val endTime = date.plusDays(1).atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+                                            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTime)
+                                            putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
+                                        }
+                                        context.startActivity(intent)
+                                    }) {
+                                        Icon(Icons.Filled.Share, contentDescription = "Share to Calendar")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
