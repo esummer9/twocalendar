@@ -45,7 +45,7 @@ class BackupActivity : ComponentActivity() {
                             .padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("백업 및 복원 화면") // Placeholder content
+                        Text("개발 중 입니다.") // Placeholder content
                     }
                 }
             }
