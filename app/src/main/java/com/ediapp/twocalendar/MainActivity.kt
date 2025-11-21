@@ -408,7 +408,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                     qrCodeScheduleDate = LocalDate.parse(parts[0], formatter)
                     qrCodeScheduleTitle = parts[1]
                 } catch (e: Exception) {
-                    Toast.makeText(context, "날짜 형식 오류. yyyyMMdd 형식을 사용하세요.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "날짜 형식 오류. YYYY-MM-DD 형식을 사용하세요.", Toast.LENGTH_LONG).show()
                     qrCodeScheduleTitle = contents
                     qrCodeScheduleDate = null
                 }
@@ -531,10 +531,11 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                         IconButton(onClick = {
                             val options = ScanOptions()
                             options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            options.setPrompt("공유받을 QR코드를 스캔하세요.")
+                            options.setPrompt("다른 장치의 일정 QR Code를 스캔하세요.")
                             options.setCameraId(0) // Use a specific camera of the device
                             options.setBeepEnabled(false)
-                            options.setBarcodeImageEnabled(true)
+                            options.setBarcodeImageEnabled(false)
+//                            options.setOrientationLocked(true)
                             qrCodeScannerLauncher.launch(options)
                         }) {
                             Icon(painter = painterResource(id = R.drawable.qr_code_read), contentDescription = "QR Code Read")
