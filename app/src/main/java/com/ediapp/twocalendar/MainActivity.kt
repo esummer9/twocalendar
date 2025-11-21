@@ -338,7 +338,7 @@ fun AddPersonalScheduleDialog(
                 Box {
                     TextField(
                         value = selectedDate.toString(),
-                        onValueChange = {},
+                        onValueChange = { },
                         label = { Text("날짜") },
                         readOnly = true,
                         modifier = Modifier.fillMaxWidth()
@@ -477,6 +477,10 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                         }) {
                             Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
                         }
+                    } else {
+                        IconButton(onClick = { /* TODO: Handle QR code scan */ }) {
+                            Icon(painter = painterResource(id = R.drawable.qr_code), contentDescription = "QR Code Read")
+                        }
                     }
 //                    IconButton(onClick = {
 //                        coroutineScope.launch {
@@ -518,7 +522,8 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                         selected = pagerState.currentPage == index,
                         onClick = {
                             coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)                            }
+                                pagerState.animateScrollToPage(index)
+                            }
                         },
                         text = { Text(text = title) }
                     )
