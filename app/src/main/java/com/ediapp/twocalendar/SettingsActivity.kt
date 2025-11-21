@@ -9,7 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,11 +23,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -36,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -72,11 +79,19 @@ fun SettingsScreen(onBack: () -> Unit) {
     var date by remember {
         mutableStateOf(sharedPreferences.getString("important_day_date", "") ?: "")
     }
+    var calculationMethod by remember {
+        mutableStateOf(sharedPreferences.getString("important_day_calculation", "지난일수") ?: "지난일수")
+    }
+    var showDayOfYear by remember {
+        mutableStateOf(sharedPreferences.getBoolean("show_day_of_year", true))
+    }
 
     val saveAndBack = {
         with(sharedPreferences.edit()) {
             putString("important_day_title", title)
             putString("important_day_date", date)
+            putString("important_day_calculation", calculationMethod)
+            putBoolean("show_day_of_year", showDayOfYear)
             apply()
         }
         onBack()
@@ -101,20 +116,60 @@ fun SettingsScreen(onBack: () -> Unit) {
             ImportantDaySettings(
                 title = title,
                 date = date,
+                calculationMethod = calculationMethod,
                 onTitleChange = { title = it },
-                onDateChange = { date = it }
+                onDateChange = { date = it },
+                onCalculationMethodChange = { calculationMethod = it }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            GeneralSettings(
+                showDayOfYear = showDayOfYear,
+                onShowDayOfYearChange = { showDayOfYear = it }
             )
         }
     }
 }
+
+@Composable
+fun GeneralSettings(
+    showDayOfYear: Boolean,
+    onShowDayOfYearChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = BorderStroke(1.dp, Color.Gray)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("일반")
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("올해의 n번째 날 표시")
+                Switch(
+                    checked = showDayOfYear,
+                    onCheckedChange = onShowDayOfYearChange
+                )
+            }
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportantDaySettings(
     title: String,
     date: String,
+    calculationMethod: String,
     onTitleChange: (String) -> Unit,
-    onDateChange: (String) -> Unit
+    onDateChange: (String) -> Unit,
+    onCalculationMethodChange: (String) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -152,6 +207,40 @@ fun ImportantDaySettings(
                         }
                     }
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val calculationOptions = listOf("지난일수", "남은일수", "표시안함")
+            var expanded by remember { mutableStateOf(false) }
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+            ) {
+                OutlinedTextField(
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    readOnly = true,
+                    value = calculationMethod,
+                    onValueChange = {},
+                    label = { Text("계산방법") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    calculationOptions.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                onCalculationMethodChange(selectionOption)
+                                expanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
 
             if (showDatePicker) {
                 val datePickerState = rememberDatePickerState()
