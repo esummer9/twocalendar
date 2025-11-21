@@ -4,6 +4,7 @@
 /.idea/caches
 /.idea/libraries
 .idea/gradle.xml
+.idea/deploymentTargetSelector.xml
 /.idea/*.xml
 /.idea/**/**.xml
 .DS_Store
