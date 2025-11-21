@@ -83,7 +83,8 @@ fun TwoMonthFragment(
     var selectedDateForDialog by remember { mutableStateOf<LocalDate?>(null) }
 
     // HolidayList의 가시성을 제어하는 상태 변수
-    var showHolidayListInMonth by remember { mutableStateOf(true) }
+    var showHolidayListInFirstMonth by remember { mutableStateOf(true) }
+    var showHolidayListInSecondMonth by remember { mutableStateOf(true) }
 
     val holidays = remember(baseMonth, selectedPersonalSchedules, newlyAddedSchedules, showHolidays, scheduleUpdateTrigger) {
         val allSelectedSchedules = selectedPersonalSchedules + newlyAddedSchedules
@@ -218,18 +219,21 @@ fun TwoMonthFragment(
             MonthCalendar(yearMonth = firstMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
 //            Log.d("holidays2", "firstMonth : $holidays")
             if(visibleCalList) {
-                HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInMonth)
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(onClick = { showHolidayListInMonth = !showHolidayListInMonth }) {
-                        Icon(
-                            imageVector = if (!showHolidayListInMonth) Icons.Filled.Info else Icons.Filled.Close,
-                            contentDescription = "공휴일 목록 보기 토글"
-                        )
+                HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInFirstMonth)
+                if (holidays.any { (date, description) -> YearMonth.from(date) == firstMonth && description.contains("personal") }) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(onClick = { showHolidayListInFirstMonth = !showHolidayListInFirstMonth }) {
+                            Icon(
+                                imageVector = if (!showHolidayListInFirstMonth) Icons.Filled.Info else Icons.Filled.Close,
+                                contentDescription = "개인일정 목록 보기 토글"
+                            )
+                        }
                     }
                 }
             }
@@ -249,18 +253,21 @@ fun TwoMonthFragment(
             MonthCalendar(yearMonth = secondMonth, holidays = holidays, onDateLongClick = onDateLongClick, onDateClick = onDateClick, visible = visibleCalList)
 //            Log.d("holidays3", "secondMonth : $holidays")
             if(visibleCalList) {
-                HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInMonth)
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(onClick = { showHolidayListInMonth = !showHolidayListInMonth }) {
-                        Icon(
-                            imageVector = if (!showHolidayListInMonth) Icons.Filled.Info else Icons.Filled.Close,
-                            contentDescription = "공휴일 목록 보기 토글"
-                        )
+                HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInSecondMonth)
+                if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && description.contains("personal") }) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(onClick = { showHolidayListInSecondMonth = !showHolidayListInSecondMonth }) {
+                            Icon(
+                                imageVector = if (!showHolidayListInSecondMonth) Icons.Filled.Info else Icons.Filled.Close,
+                                contentDescription = "개인일정 목록 보기 토글"
+                            )
+                        }
                     }
                 }
             }
