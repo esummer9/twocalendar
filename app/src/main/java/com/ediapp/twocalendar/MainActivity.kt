@@ -68,11 +68,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
 import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
 import com.ediapp.twocalendar.ui.main.TwoMonthFragment
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
@@ -97,6 +102,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        MobileAds.initialize(this)
 
         val androidId = getAndroidId(this) // Renamed variable
         Log.d(TAG, "Android ID: $androidId")
@@ -380,6 +387,26 @@ fun AddPersonalScheduleDialog(
     )
 }
 
+@Composable
+fun AdmobBanner(modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { context ->
+            // Make sure AdView is initialized with the correct AdSize
+            AdView(context).apply {
+                setAdSize(AdSize.SMART_BANNER)
+                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
+                loadAd(AdRequest.Builder().build())
+            }
+        },
+        update = { adView ->
+            // AdView's properties should only be set once, typically in the factory.
+            // If you need to update adUnitId or adSize based on state, you would do it here.
+            // However, for a banner ad, it's usually static.
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -> Unit) {
@@ -550,35 +577,38 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
             )
         },
         bottomBar = {
-            TabRow(
-                modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
-                selectedTabIndex = pagerState.currentPage,
-                indicator = { tabPositions ->
-                    Box(
-                        modifier = Modifier
-                            .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                            .fillMaxHeight()
-                    ) {
+            Column {
+                AdmobBanner()
+                TabRow(
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+                    selectedTabIndex = pagerState.currentPage,
+                    indicator = { tabPositions ->
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(3.dp)
-                                .background(color = MaterialTheme.colorScheme.primary)
-                                .align(Alignment.TopCenter)
+                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                                .fillMaxHeight()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .background(color = MaterialTheme.colorScheme.primary)
+                                    .align(Alignment.TopCenter)
+                            )
+                        }
+                    }
+                ) {
+                    tabTitles.forEachIndexed { index, title ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
+                            text = { Text(text = title) }
                         )
                     }
-                }
-            ) {
-                tabTitles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        text = { Text(text = title) }
-                    )
                 }
             }
         }
