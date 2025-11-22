@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } else {
-                    MainScreenWithTopBar(dbHelper = dbHelper, fetchHolidaysForYear = { year ->
+                    MainScreenWithBottomBar(dbHelper = dbHelper, fetchHolidaysForYear = { year ->
                         lifecycleScope.launch(Dispatchers.IO) {
                             fetchAndSaveHolidays(year)
                         }
@@ -403,7 +403,8 @@ fun AdmobBanner(modifier: Modifier = Modifier) {
                 val adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidth)
 
                 setAdSize(adSize) // 변경된 부분
-                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
+//                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
+                adUnitId = "ca-app-pub-9901915016619662/9566315087" // Test ad unit ID
                 loadAd(AdRequest.Builder().build())
             }
         },
@@ -417,7 +418,7 @@ fun AdmobBanner(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -> Unit) {
+fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -> Unit) {
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -589,6 +590,7 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
                 if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
                     AdmobBanner()
                 }
+
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
                     selectedTabIndex = pagerState.currentPage,
@@ -662,6 +664,6 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
 @Composable
 fun DefaultPreview() {
     TwocalendarTheme {
-        MainScreenWithTopBar(dbHelper = DatabaseHelper(LocalContext.current), fetchHolidaysForYear = {})
+        MainScreenWithBottomBar(dbHelper = DatabaseHelper(LocalContext.current), fetchHolidaysForYear = {})
     }
 }
