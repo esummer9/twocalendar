@@ -63,6 +63,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -389,12 +390,19 @@ fun AddPersonalScheduleDialog(
 
 @Composable
 fun AdmobBanner(modifier: Modifier = Modifier) {
+    val configuration = LocalConfiguration.current
+
     AndroidView(
         modifier = modifier.fillMaxWidth(),
         factory = { context ->
-            // Make sure AdView is initialized with the correct AdSize
             AdView(context).apply {
-                setAdSize(AdSize.SMART_BANNER)
+                val adWidth = configuration.screenWidthDp
+
+                // 2. 현재 방향에 맞는 적응형 배너 크기를 가져옵니다.
+                // 이 함수는 주어진 너비에 대해 최적의 높이를 계산합니다.
+                val adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidth)
+
+                setAdSize(adSize) // 변경된 부분
                 adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
                 loadAd(AdRequest.Builder().build())
             }
@@ -578,7 +586,9 @@ fun MainScreenWithTopBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -
         },
         bottomBar = {
             Column {
-                AdmobBanner()
+                if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
+                    AdmobBanner()
+                }
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
                     selectedTabIndex = pagerState.currentPage,
