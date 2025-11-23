@@ -1,5 +1,6 @@
 package com.ediapp.twocalendar
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -39,12 +40,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme // Adjust the import path as needed
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 class BackupActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val sharedPreferences = getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
+        var randomCode = sharedPreferences.getString("random_code", null)
+
+        if (randomCode == null) {
+            randomCode = generateRandomCode()
+            sharedPreferences.edit().putString("random_code", randomCode).apply()
+        }
+
         setContent {
             TwocalendarTheme {
                 Scaffold(
@@ -65,7 +76,7 @@ class BackupActivity : ComponentActivity() {
                             .padding(innerPadding)
                             .padding(16.dp) // Add padding around the column
                     ) {
-                        BackupSection()
+                        BackupSection(randomCode = randomCode!!)
                         Spacer(modifier = Modifier.height(16.dp))
                         RestoreSection()
                     }
@@ -73,11 +84,18 @@ class BackupActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun generateRandomCode(): String {
+        val part1 = Random.nextInt(1000, 10000)
+        val part2 = Random.nextInt(1000, 10000)
+        val part3 = Random.nextInt(1000, 10000)
+        return "$part1 - $part2 - $part3"
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun BackupSection(modifier: Modifier = Modifier) {
+fun BackupSection(modifier: Modifier = Modifier, randomCode: String = "1234 - 5678 - 9012") {
     var backupCodeInput by remember { mutableStateOf("") }
 
     Box(
@@ -88,7 +106,7 @@ fun BackupSection(modifier: Modifier = Modifier) {
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
 
-            Text("⬆\uFE0F 백업정보",
+            Text("⬆️ 백업정보",
                 modifier = Modifier.padding(1.dp), fontSize = 16.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Row(
@@ -96,18 +114,18 @@ fun BackupSection(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("랜덤코드", modifier = Modifier.weight(1f))
-                Text("1223 - 2244 - 3355", modifier = Modifier.weight(2f))
+                Text(randomCode, modifier = Modifier.weight(2f))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("랜덤코드", modifier = Modifier.weight(1f))
+                Text("백업코드", modifier = Modifier.weight(1f))
                 OutlinedTextField(
                     value = backupCodeInput,
                     onValueChange = { backupCodeInput = it },
-                    label = { Text("랜덤코드") },
+                    label = { Text("백업코드") },
                     modifier = Modifier.weight(2f)
                 )
             }
@@ -139,7 +157,7 @@ fun RestoreSection(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text("⬇\uFE0F 복원정보",
+            Text("⬇️ 복원정보",
                 modifier = Modifier.padding(1.dp), fontSize = 16.sp)
             Text("랜덤&백업코드 2개를 모두 입력하셔야 복원됩니다.",
                 Modifier.padding(4.dp), color = Color.Red, fontSize = 14.sp, textAlign = TextAlign.Center)
