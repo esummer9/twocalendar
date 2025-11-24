@@ -2,6 +2,7 @@ package com.ediapp.twocalendar
 
 import android.app.DatePickerDialog
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.DatePicker
@@ -93,6 +94,20 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+
+fun isEmulator(): Boolean {
+    Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
+    return (Build.FINGERPRINT.startsWith("generic")
+            || Build.FINGERPRINT.startsWith("unknown")
+            || Build.MODEL.contains("google_sdk")
+            || Build.MODEL.contains("sdk_gphone64")
+            || Build.MODEL.contains("Emulator")
+            || Build.MODEL.contains("Android SDK built for x86")
+            || Build.MANUFACTURER.contains("Genymotion")
+            || Build.BRAND.startsWith("generic")
+            && Build.DEVICE.startsWith("generic")
+            || "google_sdk" == Build.PRODUCT)
+}
 
 class MainActivity : ComponentActivity() {
     private val dbHelper by lazy { DatabaseHelper(this) }
@@ -435,6 +450,25 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var qrCodeScheduleTitle by remember { mutableStateOf<String?>(null) }
     var qrCodeScheduleDate by remember { mutableStateOf<LocalDate?>(null) }
 
+    var backupCalendarEnabledByRemoteConfig by remember { mutableStateOf(false) } // Placeholder for Remote Config value
+    // TODO: Implement Firebase Remote Config to update backupCalendarEnabledByRemoteConfig.
+    // Example:
+    /*
+    LaunchedEffect(Unit) {
+        val remoteConfig = Firebase.remoteConfig
+        remoteConfig.fetchAndActivate()
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val updated = task.result
+                    Log.d("RemoteConfig", "Config params updated: $updated")
+                    backupCalendarEnabledByRemoteConfig = remoteConfig.getBoolean("backup_calendar_enabled")
+                } else {
+                    Log.e("RemoteConfig", "Config fetch failed")
+                }
+            }
+    }
+    */
+
     val qrCodeScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { contents ->
             val parts = contents.split('|', limit = 2)
@@ -548,6 +582,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                             )
                             DropdownMenuItem(
                                 text = { Text("백업하기") },
+                                enabled = isEmulator() || backupCalendarEnabledByRemoteConfig,
                                 onClick = {
                                     context.startActivity(Intent(context, BackupActivity::class.java))
                                     menuExpanded = false
