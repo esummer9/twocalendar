@@ -94,6 +94,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import com.google.firebase.FirebaseApp // Added import for FirebaseApp
 
 fun isEmulator(): Boolean {
     Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
@@ -119,6 +120,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         MobileAds.initialize(this)
 
         val androidId = getAndroidId(this) // Renamed variable

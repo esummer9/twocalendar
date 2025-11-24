@@ -13,6 +13,24 @@ import kotlin.random.Random
 
 data class Saying(val saying: String, val author: String)
 
+data class DayRecord(
+    val id: Int,
+    val source: String,
+    val category: String,
+    val type: String?,
+    val dataKey: String?,
+    val applyDt: String?,
+    val title: String?,
+    val alias: String?,
+    val value: Int?,
+    val message: String?,
+    val description: String?,
+    val registeredAt: String?,
+    val createdAt: String?,
+    val deletedAt: String?,
+    val status: String?
+)
+
 class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     context,
     DATABASE_NAME,
@@ -187,14 +205,6 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val db = this.readableDatabase
         val titles = mutableListOf<String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
-
-//        val monthStr2 = String.format("%04d-%02d", yearMonth.year, yearMonth.plusMonths(1))
-
-
-//        Log.d("monthStr", "monthStr 1,2 : $monthStr, $monthStr2")
-
-
-
         val cursor = db.query(
             TABLE_NAME,
             arrayOf("DISTINCT $COL_TITLE"),
@@ -333,5 +343,58 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
 
 //        Log.d(TAG, "Holidays: $holidays")
         return holidays
+    }
+
+    fun getAllPersonalSchedules(): List<DayRecord> {
+        val personalSchedules = mutableListOf<DayRecord>()
+        val db = this.readableDatabase
+        val cursor = db.query(
+            TABLE_NAME,
+            null, // All columns
+            "$COL_CATEGORY = ?",
+            arrayOf("personal"),
+            null, null, "$COL_APPLY_DT ASC"
+        )
+
+        cursor.use {
+            while (it.moveToNext()) {
+                val id = it.getInt(it.getColumnIndexOrThrow(COL_ID))
+                val source = it.getString(it.getColumnIndexOrThrow(COL_SOURCE))
+                val category = it.getString(it.getColumnIndexOrThrow(COL_CATEGORY))
+                val type = it.getString(it.getColumnIndexOrThrow(COL_TYPE))
+                val dataKey = it.getString(it.getColumnIndexOrThrow(COL_DATA_KEY))
+                val applyDt = it.getString(it.getColumnIndexOrThrow(COL_APPLY_DT))
+                val title = it.getString(it.getColumnIndexOrThrow(COL_TITLE))
+                val alias = it.getString(it.getColumnIndexOrThrow(COL_ALIAS))
+                val value = it.getInt(it.getColumnIndexOrThrow(COL_VALUE))
+                val message = it.getString(it.getColumnIndexOrThrow(COL_MESSAGE))
+                val description = it.getString(it.getColumnIndexOrThrow(COL_DESCRIPTION))
+                val registeredAt = it.getString(it.getColumnIndexOrThrow(COL_REGISTERED_AT))
+                val createdAt = it.getString(it.getColumnIndexOrThrow(COL_CREATED_AT))
+                val deletedAt = it.getString(it.getColumnIndexOrThrow(COL_DELETED_AT))
+                val status = it.getString(it.getColumnIndexOrThrow(COL_STATUS))
+
+                personalSchedules.add(
+                    DayRecord(
+                        id = id,
+                        source = source,
+                        category = category,
+                        type = type,
+                        dataKey = dataKey,
+                        applyDt = applyDt,
+                        title = title,
+                        alias = alias,
+                        value = value,
+                        message = message,
+                        description = description,
+                        registeredAt = registeredAt,
+                        createdAt = createdAt,
+                        deletedAt = deletedAt,
+                        status = status
+                    )
+                )
+            }
+        }
+        return personalSchedules
     }
 }

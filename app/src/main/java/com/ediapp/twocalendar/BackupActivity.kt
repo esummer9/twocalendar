@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,11 +46,38 @@ import kotlin.random.Random
 
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import android.util.Log
+import android.widget.Toast
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.ktx.storage
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileWriter
+import android.net.Uri
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import kotlinx.coroutines.CoroutineScope
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import com.google.firebase.FirebaseApp // Added import for FirebaseApp
+
+// Placeholder DatabaseHelper for demonstration. 
+// Replace with your actual DatabaseHelper if it exists and has similar functionality.
 
 @OptIn(ExperimentalMaterial3Api::class)
 class BackupActivity : ComponentActivity() {
+    private val dbHelper by lazy { DatabaseHelper(this) }
+//    private val storage = Firebase.storage/**/
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         enableEdgeToEdge()
 
         val sharedPreferences = getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
@@ -62,7 +90,7 @@ class BackupActivity : ComponentActivity() {
 
         setContent {
             TwocalendarTheme {
-                BackupScreenContent(randomCode = randomCode!!) { finish() }
+                BackupScreenContent(randomCode = randomCode!!, dbHelper = dbHelper) { finish() }
             }
         }
     }
@@ -77,7 +105,7 @@ class BackupActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupScreenContent(randomCode: String, onBackPressed: () -> Unit) {
+fun BackupScreenContent(randomCode: String, dbHelper: DatabaseHelper, onBackPressed: () -> Unit) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("백업정보", "복원정보")
 
@@ -110,8 +138,8 @@ fun BackupScreenContent(randomCode: String, onBackPressed: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(16.dp))
             when (selectedTabIndex) {
-                0 -> BackupSection(randomCode = randomCode)
-                1 -> RestoreSection()
+                0 -> BackupSection(randomCode = randomCode, dbHelper = dbHelper)
+                1 -> RestoreSection(dbHelper = dbHelper)
             }
         }
     }
@@ -119,8 +147,10 @@ fun BackupScreenContent(randomCode: String, onBackPressed: () -> Unit) {
 
 
 @Composable
-fun BackupSection(modifier: Modifier = Modifier, randomCode: String = "1234 - 5678 - 9012") {
+fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: DatabaseHelper) {
     var backupCodeInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     Box(
         modifier = modifier
@@ -160,7 +190,58 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String = "1234 - 56
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                Button(onClick = { /* TODO: Implement backup logic */ }) {
+                Button(onClick = {
+                    if (backupCodeInput.isBlank()) {
+                        Toast.makeText(context, "백업코드를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    // Save backupCode to SharedPreferences
+                    val sharedPreferences = context.getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
+                    sharedPreferences.edit().putString("backup_code", backupCodeInput).apply()
+
+                    Toast.makeText(context, "백업을 시작합니다...", Toast.LENGTH_LONG).show()
+
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val days = dbHelper.getAllPersonalSchedules()
+                            val gson = Gson()
+                            val jsonString = gson.toJson(days)
+
+                            val tempFile = File(context.cacheDir, "tb_days.json")
+                            FileWriter(tempFile).use { it.write(jsonString) }
+
+                            Log.d("BackupActivity", "jsonString: $jsonString")
+
+                            val storagePath = "backups/${randomCode.replace(" ", "")}/${backupCodeInput}/tb_days.json"
+                            val fileUri = Uri.fromFile(tempFile)
+
+                            if(false) {
+                                val uploadTask = Firebase.storage.reference.child(storagePath).putFile(fileUri)
+
+                                uploadTask.addOnSuccessListener { taskSnapshot ->
+                                    CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
+                                        Toast.makeText(context, "백업 성공!", Toast.LENGTH_SHORT).show()
+                                        tempFile.delete() // Clean up temporary file
+                                    }
+                                    Log.d("BackupActivity", "Backup successful: ${taskSnapshot.metadata?.path}")
+                                }.addOnFailureListener { exception ->
+                                    CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
+                                        Toast.makeText(context, "백업 실패: ${exception.message}", Toast.LENGTH_LONG).show()
+                                        tempFile.delete() // Clean up temporary file
+                                    }
+                                    Log.e("BackupActivity", "Backup failed", exception)
+                                }
+                            }
+
+                        } catch (e: Exception) {
+                            CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
+                                Toast.makeText(context, "백업 중 오류 발생: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                            Log.e("BackupActivity", "Error during backup process", e)
+                        }
+                    }
+                }) {
                     Text("백업하기")
                 }
             }
@@ -169,9 +250,14 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String = "1234 - 56
     }
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RestoreSection(modifier: Modifier = Modifier) {
+fun RestoreSection(modifier: Modifier = Modifier, dbHelper: DatabaseHelper) {
     var backupCodeInput by remember { mutableStateOf("") }
+    var randomCodeInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     Box(
         modifier = modifier
@@ -190,7 +276,6 @@ fun RestoreSection(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                var randomCodeInput by remember { mutableStateOf("") } // Declare randomCodeInput
                 OutlinedTextField(
                     value = randomCodeInput,
                     onValueChange = { randomCodeInput = it },
@@ -216,7 +301,50 @@ fun RestoreSection(modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.End
 
                 ) {
-                Button(onClick = { /* TODO: Implement backup logic */ }) {
+                Button(onClick = {
+                    if (randomCodeInput.isBlank() || backupCodeInput.isBlank()) {
+                        Toast.makeText(context, "랜덤코드와 백업코드를 모두 입력해주세요.", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    Toast.makeText(context, "복원을 시작합니다...", Toast.LENGTH_LONG).show()
+
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val storagePath = "backups/${randomCodeInput.replace(" ", "")}/${backupCodeInput}/tb_days.json"
+                            val ONE_MEGABYTE: Long = 1024 * 1024
+                            val fileRef = Firebase.storage.reference.child(storagePath)
+
+                            fileRef.getBytes(ONE_MEGABYTE).addOnSuccessListener { bytes ->
+                                coroutineScope.launch(Dispatchers.Main) { // Use CoroutineScope for main thread Toast
+                                    try {
+                                        val jsonString = String(bytes)
+                                        val gson = Gson()
+                                        val typeToken = object : TypeToken<List<DayRecord>>() {}.type
+                                        val daysToRestore: List<DayRecord> = gson.fromJson(jsonString, typeToken)
+
+                                        Toast.makeText(context, "복원 성공!", Toast.LENGTH_SHORT).show()
+                                        Log.d("RestoreSection", "Restore successful")
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "복원 데이터 처리 중 오류: ${e.message}", Toast.LENGTH_LONG).show()
+                                        Log.e("RestoreSection", "Error processing restored data", e)
+                                    }
+                                }
+                            }.addOnFailureListener { exception ->
+                                coroutineScope.launch(Dispatchers.Main) { // Use CoroutineScope for main thread Toast
+                                    Toast.makeText(context, "복원 실패: ${exception.message}", Toast.LENGTH_LONG).show()
+                                    Log.e("RestoreSection", "Restore failed", exception)
+                                }
+                            }
+
+                        } catch (e: Exception) {
+                            coroutineScope.launch(Dispatchers.Main) { // Use CoroutineScope for main thread Toast
+                                Toast.makeText(context, "복원 중 오류 발생: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                            Log.e("RestoreSection", "Error during restore process", e)
+                        }
+                    }
+                }) {
                     Text("복원하기")
                 }
             }
@@ -228,7 +356,9 @@ fun RestoreSection(modifier: Modifier = Modifier) {
 @Composable
 fun PreviewBackupScreen() {
     TwocalendarTheme {
-        BackupScreenContent(randomCode = "1234 - 5678 - 9012") {
+        // Provide a mock DatabaseHelper for the preview
+        val mockDbHelper = DatabaseHelper(LocalContext.current) // This might require a mock context if not in an actual app context
+        BackupScreenContent(randomCode = "1234 - 5678 - 9012", dbHelper = mockDbHelper) {
             // Do nothing on back press for preview
         }
     }
