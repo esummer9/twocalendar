@@ -1,7 +1,7 @@
 package com.ediapp.twocalendar
-
 import android.app.DatePickerDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -71,6 +72,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
@@ -80,6 +82,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
+import com.google.firebase.FirebaseApp // Added import for FirebaseApp
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
@@ -94,8 +97,6 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
-import com.google.firebase.FirebaseApp // Added import for FirebaseApp
-
 fun isEmulator(): Boolean {
     Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
     return (Build.FINGERPRINT.startsWith("generic")
@@ -109,34 +110,56 @@ fun isEmulator(): Boolean {
             && Build.DEVICE.startsWith("generic")
             || "google_sdk" == Build.PRODUCT)
 }
-
 class MainActivity : ComponentActivity() {
     private val dbHelper by lazy { DatabaseHelper(this) }
-
+    private lateinit var holidayNotificationScheduler: HolidayNotificationScheduler
     companion object {
         private const val TAG = "MainActivity"
     }
-
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d(TAG, "POST_NOTIFICATIONS permission granted")
+            holidayNotificationScheduler.scheduleDailyNotification()
+        } else {
+            Log.d(TAG, "POST_NOTIFICATIONS permission denied")
+            Toast.makeText(this, "알림 권한이 거부되어 공휴일 알림을 받을 수 없습니다.", Toast.LENGTH_LONG).show()
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         MobileAds.initialize(this)
-
         val androidId = getAndroidId(this) // Renamed variable
         Log.d(TAG, "Android ID: $androidId")
-
+        holidayNotificationScheduler = HolidayNotificationScheduler(this)
+        // Request POST_NOTIFICATIONS permission if on Android 13 (API 33) or higher
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                // Permission already granted, schedule notification
+                holidayNotificationScheduler.scheduleDailyNotification()
+            } else {
+                // Request permission
+                requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            // For devices below Android 13, permission is not required at runtime
+            holidayNotificationScheduler.scheduleDailyNotification()
+        }
         enableEdgeToEdge()
         setContent {
             var isFetching by remember { mutableStateOf(true) }
-
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.IO) {
                     fetchAndSaveHolidays()
                 }
                 isFetching = false
             }
-
             TwocalendarTheme {
                 if (isFetching) {
                     Box(
@@ -159,42 +182,33 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
     suspend fun fetchAndSaveHolidays(yearToFetch: Int? = null) {
         val apiKeys = listOf("NATIONAL_HOLIDAY", "HOLIDAY")
-
         val yearsToFetch = if (yearToFetch != null) {
             listOf(yearToFetch)
         } else {
             val currentYear = Calendar.getInstance().get(Calendar.YEAR)
             listOf(currentYear, currentYear - 1, currentYear + 1)
         }
-
         coroutineScope {
             yearsToFetch.forEach { year ->
                 launch {
                     apiKeys.forEach { apiKey ->
-
                         val category = apiKey.lowercase()
-
                         if (dbHelper.countDaysByCategoryAndYear(category, year) == 0) {
                             val holidayApiConfig = Constants.API_CONFIGS[apiKey]
                                 ?: throw IllegalArgumentException("API config for $apiKey not found")
-
                             val retrofit = Retrofit.Builder()
                                 .baseUrl(holidayApiConfig.baseUrl)
                                 .addConverterFactory(SimpleXmlConverterFactory.create())
                                 .build()
-
                             val service = retrofit.create(HolidayApiService::class.java)
-
                             try {
                                 val response = service.getHolidays(
                                     serviceKey = holidayApiConfig.serviceKey,
                                     year = year,
                                     month = "" // Fetch for the whole year
                                 )
-
                                 if (response.isSuccessful) {
                                     val holidays = response.body()?.body?.items?.itemList
                                     holidays?.forEach { holiday ->
@@ -221,7 +235,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 @Composable
 fun PersonalScheduleSelectionDialog(
     allSchedules: List<String>,
@@ -232,7 +245,6 @@ fun PersonalScheduleSelectionDialog(
 ) {
     var currentSelection by remember { mutableStateOf(selectedSchedules.toSet()) }
     var holidaysChecked by remember { mutableStateOf(showHolidays) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("개인일정 표시") },
@@ -252,7 +264,6 @@ fun PersonalScheduleSelectionDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("공휴일")
                 }
-
                 LazyColumn {
                     items(allSchedules) { schedule ->
                         Row(
@@ -301,7 +312,6 @@ fun PersonalScheduleSelectionDialog(
         }
     )
 }
-
 // New Composable for adding personal schedules
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -314,20 +324,16 @@ fun AddPersonalScheduleDialog(
     val context = LocalContext.current
     var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now()) }
     var title by remember { mutableStateOf(initialTitle) }
-
     val year = selectedDate.year
     val month = selectedDate.monthValue - 1 // DatePickerDialog month is 0-indexed
     val day = selectedDate.dayOfMonth
-
     val datePickerDialog = DatePickerDialog(
         context,
         { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
             selectedDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDayOfMonth)
         }, year, month, day
     )
-
     var showDatePicker by remember { mutableStateOf(false) }
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -356,7 +362,6 @@ fun AddPersonalScheduleDialog(
         }
     }
 
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("개인일정 추가") },
@@ -384,7 +389,6 @@ fun AddPersonalScheduleDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-
         },
         confirmButton = {
             TextButton(
@@ -404,21 +408,17 @@ fun AddPersonalScheduleDialog(
         }
     )
 }
-
 @Composable
 fun AdmobBanner(modifier: Modifier = Modifier) {
     val configuration = LocalConfiguration.current
-
     AndroidView(
         modifier = modifier.fillMaxWidth(),
         factory = { context ->
             AdView(context).apply {
                 val adWidth = configuration.screenWidthDp
-
                 // 2. 현재 방향에 맞는 적응형 배너 크기를 가져옵니다.
                 // 이 함수는 주어진 너비에 대해 최적의 높이를 계산합니다.
                 val adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidth)
-
                 setAdSize(adSize) // 변경된 부분
 //                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
                 adUnitId = "ca-app-pub-9901915016619662/9566315087" // Test ad unit ID
@@ -432,7 +432,6 @@ fun AdmobBanner(modifier: Modifier = Modifier) {
         }
     )
 }
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -> Unit) {
@@ -441,7 +440,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("1+1 달", "오늘", "개인일정")
     val pagerState = rememberPagerState(initialPage = 1) { tabTitles.size }
-
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
     var showHolidays by remember { mutableStateOf(true) }
@@ -451,7 +449,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var showAddScheduleDialog by remember { mutableStateOf(false) }
     var qrCodeScheduleTitle by remember { mutableStateOf<String?>(null) }
     var qrCodeScheduleDate by remember { mutableStateOf<LocalDate?>(null) }
-
     var backupCalendarEnabledByRemoteConfig by remember { mutableStateOf(false) } // Placeholder for Remote Config value
     // TODO: Implement Firebase Remote Config to update backupCalendarEnabledByRemoteConfig.
     // Example:
@@ -470,7 +467,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             }
     }
     */
-
     val qrCodeScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { contents ->
             val parts = contents.split('|', limit = 2)
@@ -492,7 +488,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             Toast.makeText(context, "Cancelled", Toast.LENGTH_LONG).show()
         }
     }
-
     if (qrCodeScheduleTitle != null) {
         AddPersonalScheduleDialog(
             onDismiss = {
@@ -518,14 +513,12 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         )
     }
 
-
     if (showScheduleDialog) {
         val allSchedules by produceState(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
             value = withContext(Dispatchers.IO) {
                 dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth) + dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth.plusMonths(1))
             }
         }
-
         PersonalScheduleSelectionDialog(
             allSchedules = allSchedules,
             selectedSchedules = selectedSchedules,
@@ -540,7 +533,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             }
         )
     }
-
     if (showAddScheduleDialog) {
         AddPersonalScheduleDialog(
             onDismiss = { showAddScheduleDialog = false },
@@ -559,7 +551,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             }
         )
     }
-
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -627,7 +618,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                 if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
                     AdmobBanner()
                 }
-
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
                     selectedTabIndex = pagerState.currentPage,
@@ -696,7 +686,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {
