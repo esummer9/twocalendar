@@ -616,7 +616,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         bottomBar = {
             Column {
                 if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
-                    AdmobBanner()
+                    AdmobBanner(modifier = Modifier.padding(10.dp))
                 }
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
