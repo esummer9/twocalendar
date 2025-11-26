@@ -7,6 +7,11 @@ object Constants {
 
     val my_sep = ";;;"
 
+    // AdMob Ad Unit IDs
+    const val AD_UNIT_ID_BANNER = "ca-app-pub-9901915016619662/9566315087"
+    const val AD_UNIT_ID_INTERSTITIAL = "ca-app-pub-9901915016619662/4473323393"
+
+
     data class ApiConfig(
         val baseUrl: String,
         val serviceKey: String,

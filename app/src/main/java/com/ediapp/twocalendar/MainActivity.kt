@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -421,7 +422,7 @@ fun AdmobBanner(modifier: Modifier = Modifier) {
                 val adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidth)
                 setAdSize(adSize) // 변경된 부분
 //                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
-                adUnitId = "ca-app-pub-9901915016619662/9566315087" // Test ad unit ID
+                adUnitId = Constants.AD_UNIT_ID_BANNER // Test ad unit ID
                 loadAd(AdRequest.Builder().build())
             }
         },
