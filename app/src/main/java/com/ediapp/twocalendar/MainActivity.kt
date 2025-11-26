@@ -582,6 +582,13 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                     menuExpanded = false
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("가이드") },
+                                onClick = {
+                                    context.startActivity(Intent(context, GuideActivity::class.java))
+                                    menuExpanded = false
+                                }
+                            )
                         }
                     }
                 },
