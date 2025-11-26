@@ -61,34 +61,13 @@ class GuideActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (mInterstitialAd != null) {
-                    mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
-                        override fun onAdDismissedFullScreenContent() {
-                            Log.d(tag, "Ad was dismissed.")
-                            finish()
-                        }
-
-                        override fun onAdFailedToShowFullScreenContent(adError: com.google.android.gms.ads.AdError) {
-                            Log.d(tag, "Ad failed to show.")
-                            finish()
-                        }
-
-                        override fun onAdShowedFullScreenContent() {
-                            Log.d(tag, "Ad showed fullscreen content.")
-                            mInterstitialAd = null
-                        }
-                    }
-                    mInterstitialAd?.show(this@GuideActivity)
-                } else {
-                    Log.d(tag, "The interstitial ad wasn't ready yet.")
-                    finish()
-                }
+                showAdOrFinish()
             }
         })
 
         setContent {
             TwocalendarTheme {
-                GuideScreen()
+                GuideScreen(onNavigateUp = { showAdOrFinish() })
             }
         }
     }
@@ -108,12 +87,38 @@ class GuideActivity : ComponentActivity() {
             }
         })
     }
+
+    private fun showAdOrFinish() {
+        if (mInterstitialAd != null) {
+            Log.d(tag, "Attempting to show interstitial ad.")
+            mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    Log.d(tag, "Ad was dismissed.")
+                    finish()
+                }
+
+                override fun onAdFailedToShowFullScreenContent(adError: com.google.android.gms.ads.AdError) {
+                    Log.d(tag, "Ad failed to show.")
+                    finish()
+                }
+
+                override fun onAdShowedFullScreenContent() {
+                    Log.d(tag, "Ad showed fullscreen content.")
+                    mInterstitialAd = null
+                }
+            }
+            mInterstitialAd?.show(this@GuideActivity)
+        } else {
+            Log.d(tag, "The interstitial ad wasn't ready yet or failed to load. Finishing activity.")
+            finish()
+        }
+    }
 }
 
 @SuppressLint("ContextCastToActivity")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun GuideScreen() {
+fun GuideScreen(onNavigateUp: () -> Unit) { // 람다 파라미터 추가
     val activity = LocalContext.current as Activity
     val images = listOf(
         R.drawable.guide_1,
@@ -129,7 +134,7 @@ fun GuideScreen() {
             TopAppBar(
                 title = { Text(text = "Guide") },
                 navigationIcon = {
-                    IconButton(onClick = { activity.finish() }) {
+                    IconButton(onClick = onNavigateUp) { // 여기서 람다 호출
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -177,6 +182,6 @@ fun GuideScreen() {
 @Composable
 fun PreviewGuideScreen() {
     TwocalendarTheme {
-        GuideScreen()
+        GuideScreen(onNavigateUp = {}) // Preview에서는 빈 람다 전달
     }
 }
