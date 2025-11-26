@@ -183,7 +183,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     suspend fun fetchAndSaveHolidays(yearToFetch: Int? = null) {
-        val apiKeys = listOf("NATIONAL_HOLIDAY", "HOLIDAY")
+        val apiKeys = listOf("HOLIDAY")
         val yearsToFetch = if (yearToFetch != null) {
             listOf(yearToFetch)
         } else {

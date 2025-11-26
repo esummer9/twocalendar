@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.Saying
+import com.ediapp.twocalendar.Constants
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -46,6 +47,7 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,6 +192,48 @@ fun TodayFragment(modifier: Modifier = Modifier) {
                     Text(
                         text = "올해의 ${today.dayOfYear}번째 날",
                         fontSize = 20.sp
+                    )
+                }
+                
+                val nearestHolidayInfo by produceState<Pair<String, LocalDate>?>(initialValue = null, key1 = today) {
+                    val holidaysMap = mutableMapOf<LocalDate, String>()
+
+                    // Fetch holidays for the current and next year
+                    // Check for next 24 months to cover a reasonable range for upcoming holidays
+                    for (i in 0 until 24) { 
+                        val yearMonth = YearMonth.now(ZoneId.systemDefault()).plusMonths(i.toLong())
+                        holidaysMap.putAll(dbHelper.getDaysForCategoryMonth(yearMonth, listOf("holiday")))
+                    }
+
+                    var minDiff = Long.MAX_VALUE
+                    var nearestHolidayDate: LocalDate? = null
+                    var nearestHolidayTitle: String? = null
+
+                    for ((date, categoryDayString) in holidaysMap) {
+                        if (date.isAfter(today)) { // Only consider future holidays
+                            val diff = ChronoUnit.DAYS.between(today, date)
+                            if (diff < minDiff) {
+                                minDiff = diff
+                                nearestHolidayDate = date
+                                nearestHolidayTitle = categoryDayString.split("|").lastOrNull() 
+                            }
+                        }
+                    }
+
+                    if (nearestHolidayDate != null && nearestHolidayTitle != null) {
+                        value = Pair(nearestHolidayTitle, nearestHolidayDate)
+                    } else {
+                        value = null
+                    }
+                }
+
+                nearestHolidayInfo?.let { (title, date) ->
+                    val diff = ChronoUnit.DAYS.between(today, date)
+                    val formattedDate = date.format(DateTimeFormatter.ofPattern("M월 d일", Locale.KOREAN))
+                    Text(
+                        text = "D-${diff} ${title} ${formattedDate}",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 

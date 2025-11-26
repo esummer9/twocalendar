@@ -18,7 +18,7 @@ class HolidayNotificationScheduler(private val context: Context) {
         )
         val calendar = Calendar.getInstance().apply {
             timeInMillis = System.currentTimeMillis()
-            set(Calendar.HOUR_OF_DAY, 6)
+            set(Calendar.HOUR_OF_DAY, 10)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             // If the scheduled time has already passed today, set it for tomorrow
