@@ -1,5 +1,6 @@
 package com.ediapp.twocalendar
 import android.app.DatePickerDialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -70,7 +71,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -130,6 +130,13 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        if (viewGuideCount < 3) {
+            startActivity(Intent(this, GuideActivity::class.java))
+        }
+
         FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         MobileAds.initialize(this)
         val androidId = getAndroidId(this) // Renamed variable
@@ -422,7 +429,7 @@ fun AdmobBanner(modifier: Modifier = Modifier) {
                 val adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, adWidth)
                 setAdSize(adSize) // 변경된 부분
 //                adUnitId = "ca-app-pub-3940256099942544/6300978111" // Test ad unit ID
-                adUnitId = Constants.AD_UNIT_ID_BANNER // Test ad unit ID
+                adUnitId = "ca-app-pub-9901915016619662/9566315087" // Test ad unit ID
                 loadAd(AdRequest.Builder().build())
             }
         },
@@ -582,13 +589,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                     menuExpanded = false
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("가이드") },
-                                onClick = {
-                                    context.startActivity(Intent(context, GuideActivity::class.java))
-                                    menuExpanded = false
-                                }
-                            )
                         }
                     }
                 },
@@ -624,7 +624,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         bottomBar = {
             Column {
                 if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
-                    AdmobBanner(modifier = Modifier.padding(10.dp))
+                    AdmobBanner(modifier = Modifier.padding(20.dp))
                 }
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),

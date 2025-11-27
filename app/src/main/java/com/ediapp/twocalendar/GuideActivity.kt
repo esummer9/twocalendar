@@ -1,6 +1,7 @@
 package com.ediapp.twocalendar
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,15 +62,22 @@ class GuideActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                showAdOrFinish()
+                showInterstitialAndFinish()
             }
         })
 
         setContent {
             TwocalendarTheme {
-                GuideScreen(onNavigateUp = { showAdOrFinish() })
+                GuideScreen(onNavigateUp = { showInterstitialAndFinish() })
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        sharedPreferences.edit().putInt("view_guide_count", viewGuideCount + 1).apply()
     }
 
     private fun loadInterstitialAd() {
@@ -88,7 +96,7 @@ class GuideActivity : ComponentActivity() {
         })
     }
 
-    private fun showAdOrFinish() {
+    private fun showInterstitialAndFinish() {
         if (mInterstitialAd != null) {
             Log.d(tag, "Attempting to show interstitial ad.")
             mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
