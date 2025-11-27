@@ -18,7 +18,7 @@
         android:theme="@style/Theme.Twocalendar">
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-9901915016619662~5558803225"/>
+            android:value="ca-app-pub-9901915016619662~4311641487"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
