@@ -43,11 +43,12 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseHelper"
         private const val DATABASE_NAME = "ediapp.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
 
         // Table name
         const val TABLE_NAME = "tb_days"
         const val TABLE_NAME_SAYING = "tb_saying"
+        const val TABLE_NAME_BIRTHDAY = "tb_birthday"
 
         // Column names
         const val COL_ID = "_id"
@@ -69,6 +70,33 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         // tb_saying columns
         const val COL_SAYING_SAYING = "saying"
         const val COL_SAYING_AUTHOR = "author"
+        const val COL_SOL_LUN = "sol_lun"
+        const val COL_VERIFY = "is_verify"
+
+        private val SQL_CREATE_TABLE_BIRTHDAY = """
+            CREATE TABLE $TABLE_NAME_BIRTHDAY (
+                $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_SOURCE VARCHAR(50) NOT NULL,
+                $COL_CATEGORY VARCHAR(50) NOT NULL,
+                $COL_TYPE VARCHAR(50) DEFAULT NULL,
+                $COL_DATA_KEY VARCHAR(50) DEFAULT NULL,
+                $COL_APPLY_DT VARCHAR(50) DEFAULT NULL,
+                $COL_TITLE VARCHAR(100),
+                $COL_ALIAS VARCHAR(100),
+                $COL_VALUE INTEGER DEFAULT 0,
+                $COL_MESSAGE VARCHAR(250),
+                $COL_DESCRIPTION TEXT,
+                $COL_REGISTERED_AT DATETIME DEFAULT CURRENT_TIMESTAMP,
+                
+                $COL_SOL_LUN VARCHAR(10),
+                $COL_VERIFY boolean DEFAULT false,
+                
+                $COL_CREATED_AT DATETIME DEFAULT CURRENT_TIMESTAMP,
+                $COL_DELETED_AT DATETIME DEFAULT NULL,
+                $COL_STATUS VARCHAR(50) DEFAULT 'active',
+                UNIQUE($COL_SOURCE, $COL_CATEGORY, $COL_DATA_KEY) ON CONFLICT REPLACE
+            )
+        """.trimIndent()
 
         // SQL for creating the database table
         private val SQL_CREATE_TABLE = """
@@ -106,6 +134,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             db.transaction {
                 execSQL(SQL_CREATE_TABLE)
                 execSQL(SQL_CREATE_TABLE_SAYING)
+                execSQL(SQL_CREATE_TABLE_BIRTHDAY)
 
                 insertInitialData(this)
                 insertSayingData(this)
@@ -163,6 +192,11 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
                 db.transaction {
                     execSQL(SQL_CREATE_TABLE_SAYING)
                     insertSayingData(this)
+                }
+            }
+            if (oldVersion < 3) {
+                db.transaction {
+                    execSQL(SQL_CREATE_TABLE_BIRTHDAY)
                 }
             }
         } catch (e: Exception) {
