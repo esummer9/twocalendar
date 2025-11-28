@@ -167,7 +167,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             context.assets.open("tb_saying.txt").bufferedReader().useLines { lines ->
                 db.transaction {
                     lines.forEach { line ->
-                        val parts = line.split('\t')
+                        val parts = line.split('	')
                         if (parts.size == 2) {
                             val values = ContentValues().apply {
                                 put(COL_SAYING_SAYING, parts[0])
@@ -227,6 +227,17 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     fun getSayingCount(): Int {
         val db = this.readableDatabase
         val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_NAME_SAYING", null)
+        var count = 0
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0)
+        }
+        cursor.close()
+        return count
+    }
+
+    fun getBirthdayCount(): Int {
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_NAME_BIRTHDAY", null)
         var count = 0
         if (cursor.moveToFirst()) {
             count = cursor.getInt(0)
@@ -299,6 +310,44 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         )
     }
 
+    fun addBirthday(date: LocalDate, title: String) {
+        val randVal = Random.nextInt()
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SOURCE, "manual")
+            put(COL_CATEGORY, "birthday")
+            put(COL_TYPE, "date")
+            put(COL_DATA_KEY, "birthday-$date-$randVal")
+            put(COL_APPLY_DT, date.toString())
+            put(COL_TITLE, title)
+            put(COL_ALIAS, title)
+        }
+        db.insert(TABLE_NAME_BIRTHDAY, null, values)
+    }
+
+    fun updateBirthday(oldDate: LocalDate, oldTitle: String, newDate: LocalDate, newTitle: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_APPLY_DT, newDate.toString())
+            put(COL_TITLE, newTitle)
+        }
+        db.update(
+            TABLE_NAME_BIRTHDAY,
+            values,
+            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
+            arrayOf("birthday", oldDate.toString(), oldTitle)
+        )
+    }
+
+    fun deleteBirthday(date: LocalDate, title: String) {
+        val db = this.writableDatabase
+        db.delete(
+            TABLE_NAME_BIRTHDAY,
+            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
+            arrayOf("birthday", date.toString(), title)
+        )
+    }
+
     fun addDay(source: String, category: String, type: String, dataKey: String, title: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
@@ -334,13 +383,13 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
 
         categorys.forEach { category ->
-
-            val SQL = "SELECT $COL_APPLY_DT, $COL_TITLE FROM $TABLE_NAME WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
+            val tableName = if (category == "birthday") TABLE_NAME_BIRTHDAY else TABLE_NAME
+            val SQL = "SELECT $COL_APPLY_DT, $COL_TITLE FROM $tableName WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
 
             Log.d(TAG, "SQL: $SQL, catetory : $category, monthStr : $monthStr% ")
 
             val cursor = db.query(
-                TABLE_NAME,
+                tableName,
                 arrayOf(COL_APPLY_DT, COL_TITLE),
                 "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
                 arrayOf(category, "$monthStr%"),

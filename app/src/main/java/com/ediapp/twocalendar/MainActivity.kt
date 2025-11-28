@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.ediapp.twocalendar.ui.main.BirthDayFragment
 import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
 import com.ediapp.twocalendar.ui.main.TwoMonthFragment
@@ -446,7 +447,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("1+1 달", "오늘", "개인일정")
+    val tabTitles = listOf("1+1 달", "오늘", "개인일정", stringResource(id = R.string.birthday))
     val pagerState = rememberPagerState(initialPage = 1) { tabTitles.size }
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -589,6 +590,13 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                     menuExpanded = false
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("가이드 보기") },
+                                onClick = {
+                                    context.startActivity(Intent(context, GuideActivity::class.java))
+                                    menuExpanded = false
+                                }
+                            )
                         }
                     }
                 },
@@ -689,6 +697,11 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                     modifier = Modifier.fillMaxHeight(),
                     selectedDate = selectedDateForPersonalSchedule,
                     scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
+                )
+                3 -> BirthDayFragment(
+                    modifier = Modifier.fillMaxHeight(),
+                    selectedDate = selectedDateForPersonalSchedule,
+                    scheduleUpdateTrigger = scheduleUpdateTrigger
                 )
             }
         }
