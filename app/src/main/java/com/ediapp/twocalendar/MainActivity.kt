@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
 
         val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
-        if (viewGuideCount < 3) {
+        if (viewGuideCount < 5 || viewGuideCount % 20 == 1) {
             startActivity(Intent(this, GuideActivity::class.java))
         }
 

@@ -97,27 +97,33 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun showInterstitialAndFinish() {
-        if (mInterstitialAd != null) {
-            Log.d(tag, "Attempting to show interstitial ad.")
-            mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d(tag, "Ad was dismissed.")
-                    finish()
-                }
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        if (viewGuideCount % 5 == 4) {
+            if (mInterstitialAd != null) {
+                Log.d(tag, "Attempting to show interstitial ad.")
+                mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        Log.d(tag, "Ad was dismissed.")
+                        finish()
+                    }
 
-                override fun onAdFailedToShowFullScreenContent(adError: com.google.android.gms.ads.AdError) {
-                    Log.d(tag, "Ad failed to show.")
-                    finish()
-                }
+                    override fun onAdFailedToShowFullScreenContent(adError: com.google.android.gms.ads.AdError) {
+                        Log.d(tag, "Ad failed to show.")
+                        finish()
+                    }
 
-                override fun onAdShowedFullScreenContent() {
-                    Log.d(tag, "Ad showed fullscreen content.")
-                    mInterstitialAd = null
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d(tag, "Ad showed fullscreen content.")
+                        mInterstitialAd = null
+                    }
                 }
+                mInterstitialAd?.show(this@GuideActivity)
+            } else {
+                Log.d(tag, "The interstitial ad wasn't ready yet or failed to load. Finishing activity.")
+                finish()
             }
-            mInterstitialAd?.show(this@GuideActivity)
         } else {
-            Log.d(tag, "The interstitial ad wasn't ready yet or failed to load. Finishing activity.")
             finish()
         }
     }
@@ -140,7 +146,7 @@ fun GuideScreen(onNavigateUp: () -> Unit) { // 람다 파라미터 추가
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Guide") },
+                title = { Text(text = "가이드") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) { // 여기서 람다 호출
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
