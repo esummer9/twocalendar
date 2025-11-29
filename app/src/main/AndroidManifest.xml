@@ -32,6 +32,7 @@
         <activity android:name=".SettingsActivity" android:label="설정" />
         <activity android:name=".BackupActivity" android:label="백업하기" />
         <activity android:name=".GuideActivity" android:label="가이드" />
+        <activity android:name=".AnniversaryActivity" android:label="기념일" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"

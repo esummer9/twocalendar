@@ -99,6 +99,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+
 fun isEmulator(): Boolean {
     Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
     return (Build.FINGERPRINT.startsWith("generic")
@@ -206,7 +207,7 @@ class MainActivity : ComponentActivity() {
                         val category = apiKey.lowercase()
                         if (dbHelper.countDaysByCategoryAndYear(category, year) == 0) {
                             val holidayApiConfig = Constants.API_CONFIGS[apiKey]
-                                ?: throw IllegalArgumentException("API config for $apiKey not found")
+                                ?: throw IllegalArgumentException("API config for ${'$'}apiKey not found")
                             val retrofit = Retrofit.Builder()
                                 .baseUrl(holidayApiConfig.baseUrl)
                                 .addConverterFactory(SimpleXmlConverterFactory.create())
@@ -232,10 +233,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
-                                    Log.e("MainActivity", "Error fetching holidays for $apiKey: ${response.errorBody()?.string()}")
+                                    Log.e("MainActivity", "Error fetching holidays for ${'$'}apiKey: ${'$'}{response.errorBody()?.string()}")
                                 }
                             } catch (e: Exception) {
-                                Log.e("MainActivity", "Exception fetching holidays for $apiKey", e)
+                                Log.e("MainActivity", "Exception fetching holidays for ${'$'}apiKey", e)
                             }
                         }
                     }
@@ -447,8 +448,8 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("1+1 달", "오늘", "개인일정", stringResource(id = R.string.birthday))
-    val pagerState = rememberPagerState(initialPage = 1) { tabTitles.size }
+    val tabTitles = listOf("오늘", "1+1 달", "개인일정", stringResource(id = R.string.birthday))
+    val pagerState = rememberPagerState(initialPage = 0) { tabTitles.size }
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
     var showHolidays by remember { mutableStateOf(true) }
@@ -601,37 +602,53 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                     }
                 },
                 actions = {
-                    if (pagerState.currentPage == 0) {
-                        IconButton(onClick = {
-                            showScheduleDialog = true
-                        }) {
-                            Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
+                    when (pagerState.currentPage) {
+                        1 -> { // "1+1 달"
+                            IconButton(onClick = {
+                                showScheduleDialog = true
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
+                            }
                         }
-                    } else {
-                        IconButton(onClick = {
-                            val options = ScanOptions()
-                            options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            options.setPrompt("다른 장치의 일정 QR Code를 스캔하세요.")
-                            options.setCameraId(0) // Use a specific camera of the device
-                            options.setBeepEnabled(false)
-                            options.setBarcodeImageEnabled(false)
-//                            options.setOrientationLocked(true)
-                            qrCodeScannerLauncher.launch(options)
-                        }) {
-                            Icon(painter = painterResource(id = R.drawable.qr_code_read), contentDescription = "QR Code Read")
+                        2 -> { // "개인일정"
+                            IconButton(onClick = {
+                                val options = ScanOptions()
+                                options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                options.setPrompt("다른 장치의 일정 QR Code를 스캔하세요.")
+                                options.setCameraId(0) // Use a specific camera of the device
+                                options.setBeepEnabled(false)
+                                options.setBarcodeImageEnabled(false)
+                                qrCodeScannerLauncher.launch(options)
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.qr_code_read),
+                                    contentDescription = "QR Code Read")
+                            }
+                            IconButton(onClick = {
+                                showAddScheduleDialog = true
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.add),
+                                    contentDescription = "개인일정 추가")
+                            }
                         }
-                    }
-                    IconButton(onClick = {
-                        showAddScheduleDialog = true
-                    }) {
-                        Icon(painter = painterResource(id = R.drawable.add), contentDescription = "개인일정 추가")
+                        3 -> { // "기념일" (BirthDayFragment)
+                            IconButton(onClick = {
+                                context.startActivity(Intent(context, AnniversaryActivity::class.java))
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.data_add),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    contentDescription = stringResource(R.string.anniversary))
+                            }
+                        }
+                        else -> { // "오늘", "개인일정"
+
+                        }
                     }
                 }
             )
         },
         bottomBar = {
             Column {
-                if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
+                if (pagerState.currentPage != 1) { // TwoMonthFragment (now at index 1) is where the banner should be hidden
                     AdmobBanner(modifier = Modifier.padding(20.dp))
                 }
                 TabRow(
@@ -677,7 +694,8 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             verticalAlignment = Alignment.Top
         ) {
             when (it) {
-                0 -> TwoMonthFragment(
+                0 -> TodayFragment()
+                1 -> TwoMonthFragment(
                     modifier = Modifier.fillMaxHeight(),
                     fetchHolidaysForYear = fetchHolidaysForYear,
                     visibleCalList = true,
@@ -692,7 +710,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                     },
                     scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
                 )
-                1 -> TodayFragment()
                 2 -> PersonalScheduleFragment(
                     modifier = Modifier.fillMaxHeight(),
                     selectedDate = selectedDateForPersonalSchedule,

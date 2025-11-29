@@ -5,16 +5,12 @@ import android.provider.Settings
 
 object Constants {
 
-    val my_sep = ";;;"
+    const val my_sep = ";;;"
 
-    // AdMob Ad Unit IDs
-    // ca-app-pub-9901915016619662~4311641487
-    // 배너 ca-app-pub-9901915016619662/1142552664
     const val AD_UNIT_ID_BANNER = "ca-app-pub-9901915016619662/1142552664"
     // 전면 ca-app-pub-9901915016619662/5677404488
     const val AD_UNIT_ID_INTERSTITIAL = "ca-app-pub-9901915016619662/5677404488"
-//    const val AD_UNIT_ID_BANNER = "ca-app-pub-9901915016619662/9566315087"
-//    const val AD_UNIT_ID_INTERSTITIAL = "ca-app-pub-9901915016619662/4473323393"
+
 
 
     data class ApiConfig(

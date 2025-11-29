@@ -167,7 +167,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             context.assets.open("tb_saying.txt").bufferedReader().useLines { lines ->
                 db.transaction {
                     lines.forEach { line ->
-                        val parts = line.split('	')
+                        val parts = line.split('\t')
                         if (parts.size == 2) {
                             val values = ContentValues().apply {
                                 put(COL_SAYING_SAYING, parts[0])
@@ -321,6 +321,26 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             put(COL_APPLY_DT, date.toString())
             put(COL_TITLE, title)
             put(COL_ALIAS, title)
+        }
+        db.insert(TABLE_NAME_BIRTHDAY, null, values)
+    }
+
+    fun addAnniversary(name: String, shortName: String, anniversaryType: String, calendarType: String, isYearAccurate: Boolean, selectedDate: LocalDate) {
+        val db = this.writableDatabase
+
+        val randVal = Random.nextInt()
+        val values = ContentValues().apply {
+            put(COL_SOURCE, "manual")
+            put(COL_CATEGORY, "birthday")
+            put(COL_TYPE, "date")
+            put(COL_DATA_KEY, "birthday-$selectedDate-$randVal")
+            put(COL_TITLE, name)
+            put(COL_ALIAS, shortName)
+            put(COL_CATEGORY, anniversaryType)
+            put(COL_SOL_LUN, calendarType)
+            put(COL_VERIFY, isYearAccurate)
+            put(COL_APPLY_DT, selectedDate.toString())
+            put(COL_SOURCE, "manual")
         }
         db.insert(TABLE_NAME_BIRTHDAY, null, values)
     }
