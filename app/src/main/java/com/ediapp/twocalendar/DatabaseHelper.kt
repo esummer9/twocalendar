@@ -335,7 +335,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         db.insert(TABLE_NAME, null, values)
     }
 
-    fun updatePersonalSchedule(oldDate: LocalDate, oldTitle: String, newDate: LocalDate, newTitle: String) {
+    fun updatePersonalSchedule(id: Int, newDate: LocalDate, newTitle: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
             put(COL_APPLY_DT, newDate.toString())
@@ -344,17 +344,17 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         db.update(
             TABLE_NAME,
             values,
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
-            arrayOf("personal", oldDate.toString(), oldTitle)
+            "$COL_ID = ?",
+            arrayOf(id.toString())
         )
     }
 
-    fun deletePersonalSchedule(date: LocalDate, title: String) {
+    fun deletePersonalSchedule(id: Int) {
         val db = this.writableDatabase
         db.delete(
             TABLE_NAME,
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
-            arrayOf("personal", date.toString(), title)
+            "$COL_ID = ?",
+            arrayOf(id.toString())
         )
     }
 
@@ -448,7 +448,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             if (dateStr != null && title != null) {
                 try {
                     val date = LocalDate.parse(dateStr)
-                    anniversaries.add(Anniversary(id, date, Schedule(category, title, solLun)))
+                    anniversaries.add(Anniversary(id, date, Schedule(id, category, title, solLun)))
                 } catch (e: java.time.format.DateTimeParseException) {
                     Log.e(TAG, "Error parsing anniversary date: $dateStr", e)
                 }
@@ -521,38 +521,39 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
 
         categorys.forEach { category ->
             val tableName = if (category == "anniversary") TABLE_NAME_ANNIVERSARY else TABLE_NAME
-            val SQL = "SELECT $COL_APPLY_DT, $COL_TITLE FROM $tableName WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
+            val SQL = "SELECT $COL_ID, $COL_APPLY_DT, $COL_TITLE FROM $tableName WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
 
             Log.d(TAG, "SQL: $SQL, catetory : $category, monthStr : $monthStr% ")
 
             val cursor = db.query(
                 tableName,
-                arrayOf(COL_APPLY_DT, COL_TITLE),
+                arrayOf(COL_ID, COL_APPLY_DT, COL_TITLE),
                 "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
                 arrayOf(category, "$monthStr%"),
                 null, null, "$COL_APPLY_DT ASC"
             )
 
+            val idColumnIndex = cursor.getColumnIndex(COL_ID)
             val dateColumnIndex = cursor.getColumnIndex(COL_APPLY_DT)
             val titleColumnIndex = cursor.getColumnIndex(COL_TITLE)
 
-            if (dateColumnIndex == -1 || titleColumnIndex == -1) {
+            if (idColumnIndex == -1 || dateColumnIndex == -1 || titleColumnIndex == -1) {
                 Log.e(TAG, "One or more columns not found in the cursor.")
                 cursor.close()
                 return emptyMap()
             }
 
             while (cursor.moveToNext()) {
+                val id = cursor.getInt(idColumnIndex)
                 val dateStr = cursor.getString(dateColumnIndex)
                 val title = cursor.getString(titleColumnIndex)
                 if (dateStr != null && title != null) {
                     try {
                         val date = LocalDate.parse(dateStr)
-//                        holidays[date] = title
                         if (holidays[date] == null)
-                            holidays[date] = "${category}|${title}"
+                            holidays[date] = "${id}|${category}|${title}"
                         else
-                            holidays[date] += "${Constants.my_sep}${category}|${title}"
+                            holidays[date] += "${Constants.my_sep}${id}|${category}|${title}"
                     } catch (e: java.time.format.DateTimeParseException) {
                         Log.e(TAG, "Error parsing date: $dateStr", e)
                     }

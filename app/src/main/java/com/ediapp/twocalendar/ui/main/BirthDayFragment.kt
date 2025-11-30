@@ -1,6 +1,7 @@
 package com.ediapp.twocalendar.ui.main
 
 import android.content.Intent
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,8 +54,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.ediapp.twocalendar.Anniversary
 import com.ediapp.twocalendar.AnniversaryActivity
+import com.ediapp.twocalendar.Constants
 import com.ediapp.twocalendar.DatabaseHelper
+import com.ediapp.twocalendar.LunarApiService
 import com.ediapp.twocalendar.R
+import kotlinx.coroutines.launch
+import retrofit2.Retrofit
+import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -78,6 +85,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
     val anniversaryCount by produceState(initialValue = 0, key1 = refreshTrigger) {
         value = dbHelper.getAnniversaryCount()
     }
+    val coroutineScope = rememberCoroutineScope()
 
     val anniversaries by produceState(initialValue = emptyList<Anniversary>(), key1 = refreshTrigger, key2 = sortType) {
         val allAnniversaries = dbHelper.getAllAnniversaries()
@@ -288,15 +296,54 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                 confirmButton = {
                                     Button(
                                         onClick = {
-                                            val originalDate = anniversary.date
-                                            val newDate = LocalDate.of(selectedYear, originalDate.month, originalDate.dayOfMonth)
-                                            dbHelper.addBirthdayToSchedule(
-                                                category = anniversary.schedule.category,
-                                                applyDt = newDate,
-                                                title = anniversary.schedule.title
-                                            )
+                                            coroutineScope.launch {
+                                                val originalDate = anniversary.date
+                                                var newDate: LocalDate? = null
+
+                                                if (anniversary.schedule.calendarType == "음력") {
+
+                                                    val apiConfig = Constants.API_CONFIGS["LUNAR"]
+                                                    val retrofit = Retrofit.Builder()
+                                                        .baseUrl(apiConfig!!.baseUrl)
+                                                        .addConverterFactory(SimpleXmlConverterFactory.create())
+                                                        .build()
+                                                    val service = retrofit.create(LunarApiService::class.java)
+
+                                                    try {
+                                                        val response = service.getLunarDate(
+                                                            serviceKey = apiConfig.serviceKey,
+                                                            fromSolYear = selectedYear.toString(),
+                                                            toSolYear = selectedYear.toString(),
+                                                            lunMonth = String.format("%02d", originalDate.monthValue),
+                                                            lunDay = String.format("%02d", originalDate.dayOfMonth)
+                                                        )
+
+                                                        if (response.isSuccessful) {
+                                                            val lunarItem = response.body()?.body?.items?.itemList?.firstOrNull()
+                                                            if (lunarItem != null) {
+                                                                newDate = LocalDate.of(lunarItem.solYear, lunarItem.solMonth, lunarItem.solDay)
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Log.e("BirthDayFragment", "API Call Failed: ${e.message}")
+                                                    }
+                                                } else {
+                                                    newDate = LocalDate.of(selectedYear, originalDate.month, originalDate.dayOfMonth)
+                                                }
+
+                                                if (newDate != null) {
+                                                    dbHelper.addBirthdayToSchedule(
+                                                        category = anniversary.schedule.category,
+                                                        applyDt = newDate,
+                                                        title = anniversary.schedule.title
+                                                    )
+                                                    Toast.makeText(context, "${selectedYear}년 개인일정에 추가되었습니다.", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    Toast.makeText(context, "날짜 변환에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+
                                             showAddDialog = false
-                                            Toast.makeText(context, "${selectedYear}년 개인일정에 추가되었습니다.", Toast.LENGTH_SHORT).show()
                                         }
                                     ) {
                                         Text("확인")

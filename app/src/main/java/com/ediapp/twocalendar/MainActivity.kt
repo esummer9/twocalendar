@@ -298,6 +298,7 @@ fun PersonalScheduleSelectionDialog(
                                     } else {
                                         newSelection.add(schedule)
                                     }
+                        Log.d("MainActivity", "Check List : Schedule: $schedule | $newSelection")
                                     currentSelection = newSelection
                                 }
                                 .padding(vertical = 8.dp)
@@ -323,6 +324,7 @@ fun PersonalScheduleSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(currentSelection.toList(), holidaysChecked) }) {
+
                 Text("확인")
             }
         },

@@ -115,7 +115,7 @@ fun TwoMonthFragment(
                         if (parts.size < 2) return@filter false
                         val category = parts[0]
                         val title = parts[1]
-                        if (category == "personal") {
+                        if (category == "personal" || category == "생일" || category == "기념일") {
                             title in allSelectedSchedules
                         } else { // holiday or national_holiday
                             true
@@ -478,10 +478,13 @@ fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible:
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 monthSchedulesByDate.forEach { (date, schedules) ->
                     schedules.forEach { scheduleDescription ->
-                        val parts = scheduleDescription.split('|', limit = 2)
-                        val type = parts.getOrNull(0)
-                        val scheduleTitle = parts.getOrNull(1)
 
+
+                        val parts = scheduleDescription.split('|')
+                        val type = parts.getOrNull(1)
+                        val scheduleTitle = parts.getOrNull(2)
+
+                        Log.d("TwoMonthFragment", "Check List 2: $scheduleDescription | $type | $scheduleTitle")
                         if (scheduleTitle != null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

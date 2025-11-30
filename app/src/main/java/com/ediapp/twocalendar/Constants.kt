@@ -34,6 +34,11 @@ object Constants {
             baseUrl = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/",
             serviceKey = "MzfGSuOeRsHJxatg9rabhIC/8lw/f95wNLGSGakqMb40S/Orp+UrYhLEtTznRzBLWFePFHTsYARFSn1L2PQLGA==",
             description = "공휴일 정보 조회"
+        ),
+        "LUNAR" to ApiConfig(
+            baseUrl = "https://apis.data.go.kr/B090041/openapi/service/LrsrCldInfoService/",
+            serviceKey = "MzfGSuOeRsHJxatg9rabhIC/8lw/f95wNLGSGakqMb40S/Orp+UrYhLEtTznRzBLWFePFHTsYARFSn1L2PQLGA==",
+            description = "공휴일 정보 조회"
         )
         // 여기에 다른 API 설정을 추가할 수 있습니다.
     )

@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward // Use AutoMirrored version
@@ -77,7 +77,7 @@ import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-data class Schedule(val category: String, val title: String, val calendarType: String? = null)
+data class Schedule(val id: Int, val category: String, val title: String, val calendarType: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,7 +170,7 @@ fun AddScheduleDialog(
 fun EditScheduleDialog(
     schedule: Pair<LocalDate, Schedule>,
     onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String, LocalDate, String) -> Unit
+    onConfirm: (Int, LocalDate, String) -> Unit
 ) {
     var newTitle by remember { mutableStateOf(schedule.second.title) }
     var newDate by remember { mutableStateOf(schedule.first) }
@@ -236,7 +236,7 @@ fun EditScheduleDialog(
             Button(
                 onClick = {
                     if (newTitle.isNotBlank()) {
-                        onConfirm(schedule.first, schedule.second.title, newDate, newTitle)
+                        onConfirm(schedule.second.id, newDate, newTitle)
                     }
                 }
             ) {
@@ -384,13 +384,17 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
             .flatMap { (date, scheduleString) ->
                 scheduleString.split(Constants.my_sep).mapNotNull { line ->
                     if (line.isNotBlank()) {
-                        val parts = line.split('|', limit = 2)
-                        if (parts.size == 2) {
-                            date to Schedule(category = parts[0], title = parts[1])
+                        val parts = line.split('|', limit = 3) // limit 3 to get id, category, title
+                        if (parts.size == 3) {
+                            val id = parts[0].toInt()
+                            val category = parts[1]
+                            val title = parts[2]
+                            date to Schedule(id = id, category = category, title = title)
                         } else {
                             return@mapNotNull null
                         }
-                    } else {
+                    }
+                    else {
                         return@mapNotNull null
                     }
                 }
@@ -398,23 +402,23 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
             .sortedBy { it.first }
     }
 
-    var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, String>?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showDuplicateDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showQrCodeDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-    var expandedItem by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
+    var expandedItemIndex by remember { mutableStateOf<Int?>(null) }
 
 
     if (showDeleteDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text("일정 삭제") },
-            text = { Text("'${showDeleteDialog!!.second}' 일정을 삭제하시겠습니까?") },
+            text = { Text("'${showDeleteDialog!!.second.title}' 일정을 삭제하시겠습니까?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        dbHelper.deletePersonalSchedule(showDeleteDialog!!.first, showDeleteDialog!!.second)
+                        dbHelper.deletePersonalSchedule(showDeleteDialog!!.second.id)
                         refreshTrigger++
                         showDeleteDialog = null
                     }
@@ -446,8 +450,8 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
         EditScheduleDialog(
             schedule = showEditDialog!!,
             onDismiss = { showEditDialog = null },
-            onConfirm = { oldDate, oldTitle, newDate, newTitle ->
-                dbHelper.updatePersonalSchedule(oldDate, oldTitle, newDate, newTitle)
+            onConfirm = { id, newDate, newTitle ->
+                dbHelper.updatePersonalSchedule(id, newDate, newTitle)
                 refreshTrigger++
                 showEditDialog = null
             }
@@ -524,14 +528,14 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
         } else {
             val today = LocalDate.now()
             LazyColumn (modifier = Modifier.fillMaxHeight()){
-                items(schedules) { (date, schedule) ->
+                itemsIndexed(schedules) { index, (date, schedule) ->
                     Box {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .combinedClickable(
                                     onClick = { /* No action on simple click */ },
-                                    onLongClick = { expandedItem = date to schedule }
+                                    onLongClick = { expandedItemIndex = index }
                                 )
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -596,28 +600,28 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                         }
 
                         DropdownMenu(
-                            expanded = expandedItem == date to schedule,
-                            onDismissRequest = { expandedItem = null }
+                            expanded = expandedItemIndex == index,
+                            onDismissRequest = { expandedItemIndex = null }
                         ) {
                             DropdownMenuItem(
                                 text = { Text("수정") },
                                 onClick = {
                                     showEditDialog = date to schedule
-                                    expandedItem = null
+                                    expandedItemIndex = null
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text("복제") },
                                 onClick = {
                                     showDuplicateDialog = date to schedule
-                                    expandedItem = null
+                                    expandedItemIndex = null
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text("삭제") },
                                 onClick = {
-                                    showDeleteDialog = date to schedule.title
-                                    expandedItem = null
+                                    showDeleteDialog = date to schedule
+                                    expandedItemIndex = null
                                 }
                             )
                         }
