@@ -332,10 +332,17 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                                 }
 
                                                 if (newDate != null) {
+
+                                                    val category = anniversary.schedule.category
+
+                                                    var title = anniversary.schedule.title
+                                                    if (title == "생일")
+                                                        title = if (title.contains(category)) title else "$title - $category"
+
                                                     dbHelper.addBirthdayToSchedule(
-                                                        category = anniversary.schedule.category,
+                                                        category = category,
                                                         applyDt = newDate,
-                                                        title = anniversary.schedule.title
+                                                        title = title
                                                     )
                                                     Toast.makeText(context, "${selectedYear}년 개인일정에 추가되었습니다.", Toast.LENGTH_SHORT).show()
                                                 } else {
