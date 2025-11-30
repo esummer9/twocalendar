@@ -84,7 +84,8 @@ class AnniversaryActivity : ComponentActivity() {
                             title = { Text(stringResource(id = R.string.anniversary)) },
                             navigationIcon = {
                                 IconButton(onClick = { (context as? Activity)?.finish() }) {
-                                    Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back_button_description))
+                                    Icon(Icons.Filled.ArrowBack,
+                                        contentDescription = stringResource(id = R.string.back_button_description))
                                 }
                             },
                             actions = {
@@ -106,7 +107,8 @@ class AnniversaryActivity : ComponentActivity() {
                                     }
                                 }) {
                                     Icon(painter = painterResource(id = R.drawable.save),
-                                        contentDescription = stringResource(id = R.string.save_button_description), Modifier.size(40.dp))
+                                        contentDescription = stringResource(id = R.string.save_button_description),
+                                        Modifier.size(30.dp))
                                 }
                             }
                         )
@@ -136,16 +138,13 @@ fun AnniversaryInputCard(
     val anniversaryTypes = listOf(
         stringResource(id = R.string.anniversary_type_birthday),
         stringResource(id = R.string.anniversary_type_anniversary),
-        stringResource(id = R.string.anniversary_type_death),
-        stringResource(id = R.string.anniversary_type_hire),
         stringResource(id = R.string.anniversary_type_etc)
     )
     var isAnniversaryTypeExpanded by remember { mutableStateOf(false) }
 
     val calendarTypes = listOf(
         stringResource(id = R.string.calendar_type_solar),
-        stringResource(id = R.string.calendar_type_lunar),
-        stringResource(id = R.string.calendar_type_lunar_leap)
+        stringResource(id = R.string.calendar_type_lunar), 
     )
     var isCalendarTypeExpanded by remember { mutableStateOf(false) }
 
@@ -202,13 +201,6 @@ fun AnniversaryInputCard(
                     value = anniversaryData.name,
                     onValueChange = { onAnniversaryDataChange(anniversaryData.copy(name = it)) },
                     label = { Text(stringResource(id = R.string.name_label)) },
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp)) // Add some space between the fields
-                OutlinedTextField(
-                    value = anniversaryData.shortName,
-                    onValueChange = { onAnniversaryDataChange(anniversaryData.copy(shortName = it)) },
-                    label = { Text(stringResource(id = R.string.short_name_label)) },
                     modifier = Modifier.weight(1f)
                 )
             }

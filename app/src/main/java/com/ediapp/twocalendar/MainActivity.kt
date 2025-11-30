@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -108,6 +109,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import com.ediapp.twocalendar.Constants
 
 fun isEmulator(): Boolean {
     Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
@@ -520,23 +522,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var showBirthdayQrCodeDialog by remember { mutableStateOf(false) }
     var birthdayQrJson by remember { mutableStateOf<String?>(null) }
 
-    // TODO: Implement Firebase Remote Config to update backupCalendarEnabledByRemoteConfig.
-    // Example:
-    /*
-    LaunchedEffect(Unit) {
-        val remoteConfig = Firebase.remoteConfig
-        remoteConfig.fetchAndActivate()
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val updated = task.result
-                    Log.d("RemoteConfig", "Config params updated: $updated")
-                    backupCalendarEnabledByRemoteConfig = remoteConfig.getBoolean("backup_calendar_enabled")
-                } else {
-                    Log.e("RemoteConfig", "Config fetch failed")
-                }
-            }
-    }
-    */
     val qrCodeScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { contents ->
             val parts = contents.split('|', limit = 2)
@@ -642,7 +627,8 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     if (showScheduleDialog) {
         val allSchedules by produceState(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
             value = withContext(Dispatchers.IO) {
-                dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth) + dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth.plusMonths(1))
+                dbHelper.getDistinctScheduleTitlesForMonth(Constants.DAYS_CATEGORIES, currentYearMonth) +
+                        dbHelper.getDistinctScheduleTitlesForMonth(Constants.DAYS_CATEGORIES, currentYearMonth.plusMonths(1))
             }
         }
         PersonalScheduleSelectionDialog(
@@ -723,14 +709,19 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                             IconButton(onClick = {
                                 showScheduleDialog = true
                             }) {
-                                Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
+                                Icon(painter = painterResource(id = R.drawable.double_check),
+                                    modifier = Modifier.size(30.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    contentDescription = "Double Check")
                             }
                         }
                         2 -> { // "개인일정"
                             IconButton(onClick = {
                                 showAddScheduleDialog = true
                             }) {
-                                Icon(painter = painterResource(id = R.drawable.add),
+                                Icon(painter = painterResource(id = R.drawable.new_record),
+                                    modifier = Modifier.size(25.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
                                     contentDescription = "개인일정 추가")
                             }
                             IconButton(onClick = {
@@ -743,31 +734,34 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                 qrCodeScannerLauncher.launch(options)
                             }) {
                                 Icon(painter = painterResource(id = R.drawable.import_qrcode),
+                                    modifier = Modifier.size(25.dp),
                                     tint = MaterialTheme.colorScheme.primary,
                                     contentDescription = "QR Code Read")
                             }
                         }
-                        3 -> { // "기념일" (BirthDayFragment)
-                            IconButton(onClick = {
-                                context.startActivity(Intent(context, AnniversaryActivity::class.java))
-                            }) {
-                                Icon(painter = painterResource(id = R.drawable.data_add),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    contentDescription = stringResource(R.string.anniversary))
+                        3 -> {
+                            if(false) {
+                                IconButton(onClick = {
+                                }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.migration),
+                                        modifier = Modifier.size(30.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        contentDescription = "개인일정에 추가하기"
+                                    )
+                                }
                             }
-
                             IconButton(onClick = {
                                 coroutineScope.launch(Dispatchers.IO) {
                                     val result = dbHelper.getAllBirthdaysForQrCode()
-//                                    Log.d("JSON", result.joinToString(Constants.my_sep))
-//                                    val json = Gson().toJson(result)
                                     withContext(Dispatchers.Main) {
                                         birthdayQrJson = result.joinToString(Constants.my_sep)
                                         showBirthdayQrCodeDialog = true
                                     }
                                 }
                             }) {
-                                Icon(painter = painterResource(id = R.drawable.qr_code),
+                                Icon(painter = painterResource(id = R.drawable.qr_share),
+                                    modifier = Modifier.size(25.dp),
                                     tint = MaterialTheme.colorScheme.primary,
                                     contentDescription = "생일 QR Code")
                             }
@@ -782,6 +776,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                 birthdayQrCodeScannerLauncher.launch(options)
                             }) {
                                 Icon(painter = painterResource(id = R.drawable.import_qrcode),
+                                    modifier = Modifier.size(25.dp),
                                     tint = MaterialTheme.colorScheme.primary,
                                     contentDescription = "생일 QR Code 읽어오기")
                             }

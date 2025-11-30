@@ -1,6 +1,9 @@
 package com.ediapp.twocalendar.ui.main
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,11 +45,13 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.ediapp.twocalendar.Anniversary
+import com.ediapp.twocalendar.AnniversaryActivity
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.R
 import java.time.DayOfWeek
@@ -108,43 +115,57 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val monthStr = "전체 기념일: ${anniversaryCount}개"
+            val monthStr = "전체: ${anniversaryCount}개"
             Text(
                 text = monthStr,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
-            Box {
-                IconButton(onClick = { showSortMenu = true }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = {
+                    context.startActivity(Intent(context, AnniversaryActivity::class.java))
+                }) {
                     Icon(
-                        painterResource(R.drawable.sort), modifier = Modifier.size(30.dp)
-                        , contentDescription = "정렬")
+                        painterResource(R.drawable.new_record),
+                        modifier = Modifier.size(25.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = "기념일 추가"
+                    )
                 }
-                DropdownMenu(
-                    expanded = showSortMenu,
-                    onDismissRequest = { showSortMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("날짜순") },
-                        onClick = {
-                            sortType = SortType.DATE
-                            showSortMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("이름순") },
-                        onClick = {
-                            sortType = SortType.NAME
-                            showSortMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("카테고리순") },
-                        onClick = {
-                            sortType = SortType.CATEGORY
-                            showSortMenu = false
-                        }
-                    )
+                Box {
+                    IconButton(onClick = { showSortMenu = true }) {
+                        Icon(
+                            painterResource(R.drawable.sort),
+                            modifier = Modifier.size(25.dp)
+                            , tint = MaterialTheme.colorScheme.primary
+                            , contentDescription = "정렬")
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("날짜순") },
+                            onClick = {
+                                sortType = SortType.DATE
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("이름순") },
+                            onClick = {
+                                sortType = SortType.NAME
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("카테고리순") },
+                            onClick = {
+                                sortType = SortType.CATEGORY
+                                showSortMenu = false
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -160,6 +181,8 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                     val date = anniversary.date
                     val schedule = anniversary.schedule
                     var showContextMenu by remember { mutableStateOf(false) }
+                    var showAddDialog by remember { mutableStateOf(false) }
+
                     Box {
                         Row(
                             modifier = Modifier
@@ -221,11 +244,68 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                             onDismissRequest = { showContextMenu = false }
                         ) {
                             DropdownMenuItem(
+                                text = { Text("개인일정에 추가") },
+                                onClick = {
+                                    showContextMenu = false
+                                    showAddDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("삭제") },
                                 onClick = {
                                     dbHelper.deleteAnniversary(anniversary.id)
                                     showContextMenu = false
                                     refreshTrigger++
+                                }
+                            )
+                        }
+
+                        if (showAddDialog) {
+                            val currentYear = LocalDate.now().year
+                            var selectedYear by remember { mutableIntStateOf(currentYear) }
+                            val yearRange = (currentYear - 0)..(currentYear + 2)
+
+                            AlertDialog(
+                                onDismissRequest = { showAddDialog = false },
+                                title = { Text("개인일정에 복사") },
+                                text = {
+                                    Column {
+                                        Text("몇년도 값으로 복사 할까요?")
+                                        yearRange.forEach { year ->
+                                            Text(
+                                                text = year.toString(),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { selectedYear = year }
+                                                    .padding(vertical = 8.dp),
+                                                color = if (selectedYear == year) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                                                textAlign = TextAlign.Center,
+                                                fontWeight = if (selectedYear == year) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            val originalDate = anniversary.date
+                                            val newDate = LocalDate.of(selectedYear, originalDate.month, originalDate.dayOfMonth)
+                                            dbHelper.addBirthdayToSchedule(
+                                                category = anniversary.schedule.category,
+                                                applyDt = newDate,
+                                                title = anniversary.schedule.title
+                                            )
+                                            showAddDialog = false
+                                            Toast.makeText(context, "${selectedYear}년 개인일정에 추가되었습니다.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    ) {
+                                        Text("확인")
+                                    }
+                                },
+                                dismissButton = {
+                                    Button(onClick = { showAddDialog = false }) {
+                                        Text("취소")
+                                    }
                                 }
                             )
                         }
@@ -235,4 +315,10 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BirthDayFragmentPreview() {
+    BirthDayFragment(scheduleUpdateTrigger = 0)
 }

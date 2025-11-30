@@ -11,7 +11,7 @@ object Constants {
     // 전면 ca-app-pub-9901915016619662/5677404488
     const val AD_UNIT_ID_INTERSTITIAL = "ca-app-pub-9901915016619662/5677404488"
 
-
+    val DAYS_CATEGORIES = listOf("personal","생일","기타")
 
     data class ApiConfig(
         val baseUrl: String,

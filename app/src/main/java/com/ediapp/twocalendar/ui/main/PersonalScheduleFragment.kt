@@ -373,8 +373,8 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
     }
 
     val schedules by produceState(initialValue = emptyList<Pair<LocalDate, Schedule>>(), key1 = baseMonth, key2 = refreshTrigger, key3 = scheduleUpdateTrigger) { // Add scheduleUpdateTrigger as a key
-        val firstMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("personal"))
-        val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("personal"))
+        val firstMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("personal", "생일", "기념일"))
+        val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("personal", "생일", "기념일"))
 
         val allSchedulesRaw = (firstMonthSchedulesRaw.keys + secondMonthSchedulesRaw.keys).associateWith {
             (firstMonthSchedulesRaw[it].orEmpty() + Constants.my_sep + secondMonthSchedulesRaw[it].orEmpty()).trim()
@@ -588,7 +588,10 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
 
                             // 3번째 컬럼: 공유 버튼
                             IconButton(onClick = { showQrCodeDialog = date to schedule }) {
-                                Icon(painter = painterResource(id = R.drawable.qr_code), contentDescription = "QR Code")
+                                Icon(painter = painterResource(id = R.drawable.qr_share),
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    contentDescription = "QR Code")
                             }
                         }
 

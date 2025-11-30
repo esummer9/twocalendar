@@ -98,6 +98,8 @@ fun TwoMonthFragment(
         }
         if (allSelectedSchedules.isNotEmpty()) {
             categories.add("personal")
+            categories.add("생일")
+            categories.add("기념일")
         }
 
         if (categories.isEmpty()) {

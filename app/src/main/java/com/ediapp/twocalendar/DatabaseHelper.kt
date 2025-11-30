@@ -273,15 +273,24 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         return count
     }
 
-    fun getDistinctScheduleTitlesForMonth(category: String, yearMonth: YearMonth): List<String> {
+    fun getDistinctScheduleTitlesForMonth(categories: List<String>, yearMonth: YearMonth): List<String> {
         val db = this.readableDatabase
         val titles = mutableListOf<String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
+
+        if (categories.isEmpty()) {
+            return emptyList()
+        }
+
+        val categoryPlaceholders = categories.joinToString { "?" }
+        val selection = "$COL_CATEGORY IN ($categoryPlaceholders) AND $COL_APPLY_DT LIKE ?"
+        val selectionArgs = categories.toTypedArray() + "$monthStr%"
+
         val cursor = db.query(
             TABLE_NAME,
             arrayOf("DISTINCT $COL_TITLE"),
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
-            arrayOf(category, "$monthStr%"),
+            selection,
+            selectionArgs,
             null, null, "$COL_TITLE ASC"
         )
 
@@ -310,6 +319,18 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             put(COL_APPLY_DT, date.toString())
             put(COL_TITLE, title)
             put(COL_ALIAS, title)
+        }
+        db.insert(TABLE_NAME, null, values)
+    }
+
+    fun addBirthdayToSchedule(category: String, applyDt: LocalDate, title: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SOURCE, "birthday")
+            put(COL_CATEGORY, category)
+            put(COL_TYPE, "date")
+            put(COL_APPLY_DT, applyDt.toString())
+            put(COL_TITLE, title)
         }
         db.insert(TABLE_NAME, null, values)
     }
@@ -343,7 +364,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val selection = "$COL_TITLE = ? AND $COL_CATEGORY = ? AND $COL_SOL_LUN = ? AND $COL_APPLY_DT = ? and deleted_at is null "
         val selectionArgs = arrayOf(name, category, calendarType, applyDt.toString())
 
-        Log.d(TAG, "addAnniversary: ${selectionArgs.joinToString ("\n")}")
+        Log.d(TAG, "addAnniversary: ${selectionArgs.joinToString ("")}")
 
         val cursor = db.query(
             TABLE_NAME_ANNIVERSARY,
@@ -405,13 +426,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val anniversaries = mutableListOf<Anniversary>()
         val cursor = db.query(
             TABLE_NAME_ANNIVERSARY,
-            arrayOf(COL_ID, COL_APPLY_DT, COL_TITLE, COL_CATEGORY, COL_SOL_LUN),
+            arrayOf(COL_ID, COL_APPLY_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN),
             "$COL_DELETED_AT IS NULL", null, null, null, "$COL_APPLY_DT ASC"
         )
 
         val idColumnIndex = cursor.getColumnIndexOrThrow(COL_ID)
         val dateColumnIndex = cursor.getColumnIndexOrThrow(COL_APPLY_DT)
         val titleColumnIndex = cursor.getColumnIndexOrThrow(COL_TITLE)
+        val aliasColumnIndex = cursor.getColumnIndexOrThrow(COL_ALIAS)
         val categoryColumnIndex = cursor.getColumnIndexOrThrow(COL_CATEGORY)
         val solLunColumnIndex = cursor.getColumnIndexOrThrow(COL_SOL_LUN)
 
@@ -420,6 +442,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             val id = cursor.getInt(idColumnIndex)
             val dateStr = cursor.getString(dateColumnIndex)
             val title = cursor.getString(titleColumnIndex)
+            val alias = cursor.getString(aliasColumnIndex)
             val category = cursor.getString(categoryColumnIndex)
             val solLun = cursor.getString(solLunColumnIndex)
             if (dateStr != null && title != null) {
