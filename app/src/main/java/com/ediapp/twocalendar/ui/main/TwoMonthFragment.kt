@@ -111,13 +111,14 @@ fun TwoMonthFragment(
             if (allSelectedSchedules.isNotEmpty()) {
                 allSchedules.mapValues { (_, descriptions) ->
                     descriptions.split(my_sep).filter { desc ->
-                        val parts = desc.split('|', limit = 2)
-                        if (parts.size < 2) return@filter false
-                        val category = parts[0]
-                        val title = parts[1]
+                        val parts = desc.split('|')
+                        if (parts.size < 3) return@filter true
+
+                        val category = parts[1]
+                        val title = parts[2]
                         if (category == "personal" || category == "생일" || category == "기념일") {
                             title in allSelectedSchedules
-                        } else { // holiday or national_holiday
+                        } else {
                             true
                         }
                     }.joinToString(my_sep)
