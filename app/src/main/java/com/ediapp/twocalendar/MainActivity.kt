@@ -3,6 +3,8 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -14,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -66,6 +69,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -85,6 +89,11 @@ import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.FirebaseApp // Added import for FirebaseApp
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
@@ -418,6 +427,54 @@ fun AddPersonalScheduleDialog(
         }
     )
 }
+
+@Composable
+fun QrCodeImage(data: String, size: Int = 512) {
+    val writer = QRCodeWriter()
+    val hints = mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")
+    val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, size, size, hints)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+    for (x in 0 until size) {
+        for (y in 0 until size) {
+            bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+        }
+    }
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = "QR Code"
+    )
+}
+
+@Composable
+fun BirthdayQrCodeDialog(
+    json: String?,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("생일정보 공유") },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (json != null) {
+                    QrCodeImage(data = json, size = 800) // Use a smaller size for the dialog
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("다른 핸드폰에서 QR 코드를 스캔하여 생일정보를 가져올 수 있습니다.")
+                } else {
+                    Text("생일 정보가 없습니다.")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("닫기")
+            }
+        }
+    )
+}
+
 @Composable
 fun AdmobBanner(modifier: Modifier = Modifier) {
     val configuration = LocalConfiguration.current
@@ -460,6 +517,9 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var qrCodeScheduleTitle by remember { mutableStateOf<String?>(null) }
     var qrCodeScheduleDate by remember { mutableStateOf<LocalDate?>(null) }
     var backupCalendarEnabledByRemoteConfig by remember { mutableStateOf(false) } // Placeholder for Remote Config value
+    var showBirthdayQrCodeDialog by remember { mutableStateOf(false) }
+    var birthdayQrJson by remember { mutableStateOf<String?>(null) }
+
     // TODO: Implement Firebase Remote Config to update backupCalendarEnabledByRemoteConfig.
     // Example:
     /*
@@ -498,6 +558,55 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             Toast.makeText(context, "Cancelled", Toast.LENGTH_LONG).show()
         }
     }
+
+    val birthdayQrCodeScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { contents ->
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val records = contents.split(Constants.my_sep)
+                    var importedCount = 0
+                    for (recordString in records) {
+                        if (recordString.isBlank()) continue
+                        val fields = recordString.split('|')
+                        if (fields.size >= 6) { // name|shortName|anniversaryType|calendarType|isYearAccurate|apply_dt
+                            val name = fields[2]
+                            val shortName = fields[3]
+                            val anniversaryType = fields[0]
+                            val calendarType = fields[4]
+                            val isYearAccurate = fields[5].toBoolean()
+                            val applyDt = fields[1]
+
+                            dbHelper.addAnniversary(
+                                source = "qr-code",
+                                name = name,
+                                shortName = shortName,
+                                category = anniversaryType,
+                                calendarType = calendarType,
+                                isYearAccurate = isYearAccurate,
+                                applyDt = LocalDate.parse(applyDt)
+                            )
+                            importedCount++
+                        } else {
+                            Log.e("MainActivity", "Invalid birthday record format: ${'$'}recordString")
+                        }
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "${importedCount}개의 생일 정보를 가져왔습니다.", Toast.LENGTH_LONG).show()
+                        scheduleUpdateTrigger++
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error parsing birthday QR code: ${'$'}{e.message}", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "생일 정보 QR코드를 처리하는 중 오류가 발생했습니다: ${'$'}{e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        } ?: run {
+            Toast.makeText(context, "Cancelled", Toast.LENGTH_LONG).show()
+        }
+    }
+
     if (qrCodeScheduleTitle != null) {
         AddPersonalScheduleDialog(
             onDismiss = {
@@ -521,6 +630,13 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             initialTitle = qrCodeScheduleTitle ?: "",
             initialDate = qrCodeScheduleDate
         )
+    }
+
+    if (showBirthdayQrCodeDialog) {
+        BirthdayQrCodeDialog(json = birthdayQrJson, onDismiss = {
+            showBirthdayQrCodeDialog = false
+            birthdayQrJson = null
+        })
     }
 
     if (showScheduleDialog) {
@@ -612,22 +728,23 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                         }
                         2 -> { // "개인일정"
                             IconButton(onClick = {
+                                showAddScheduleDialog = true
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.add),
+                                    contentDescription = "개인일정 추가")
+                            }
+                            IconButton(onClick = {
                                 val options = ScanOptions()
                                 options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                options.setPrompt("다른 장치의 일정 QR Code를 스캔하세요.")
+                                options.setPrompt("다른 핸드폰의 일정 QR Code를 스캔하세요.")
                                 options.setCameraId(0) // Use a specific camera of the device
                                 options.setBeepEnabled(false)
                                 options.setBarcodeImageEnabled(false)
                                 qrCodeScannerLauncher.launch(options)
                             }) {
-                                Icon(painter = painterResource(id = R.drawable.qr_code_read),
+                                Icon(painter = painterResource(id = R.drawable.import_qrcode),
+                                    tint = MaterialTheme.colorScheme.primary,
                                     contentDescription = "QR Code Read")
-                            }
-                            IconButton(onClick = {
-                                showAddScheduleDialog = true
-                            }) {
-                                Icon(painter = painterResource(id = R.drawable.add),
-                                    contentDescription = "개인일정 추가")
                             }
                         }
                         3 -> { // "기념일" (BirthDayFragment)
@@ -638,6 +755,37 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                     tint = MaterialTheme.colorScheme.primary,
                                     contentDescription = stringResource(R.string.anniversary))
                             }
+
+                            IconButton(onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val result = dbHelper.getAllBirthdaysForQrCode()
+//                                    Log.d("JSON", result.joinToString(Constants.my_sep))
+//                                    val json = Gson().toJson(result)
+                                    withContext(Dispatchers.Main) {
+                                        birthdayQrJson = result.joinToString(Constants.my_sep)
+                                        showBirthdayQrCodeDialog = true
+                                    }
+                                }
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.qr_code),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    contentDescription = "생일 QR Code")
+                            }
+
+                            IconButton(onClick = {
+                                val options = ScanOptions()
+                                options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                options.setPrompt("다른폰의 생일 QR Code를 스캔하세요.")
+                                options.setCameraId(0) // Use a specific camera of the device
+                                options.setBeepEnabled(false)
+                                options.setBarcodeImageEnabled(false)
+                                birthdayQrCodeScannerLauncher.launch(options)
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.import_qrcode),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    contentDescription = "생일 QR Code 읽어오기")
+                            }
+
                         }
                         else -> { // "오늘", "개인일정"
 

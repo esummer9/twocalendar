@@ -1,28 +1,17 @@
 package com.ediapp.twocalendar.ui.main
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,10 +20,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,285 +33,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ediapp.twocalendar.Constants
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.ediapp.twocalendar.Anniversary
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.R
-import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
 import java.time.DayOfWeek
-import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneOffset
 import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 // data class Schedule is already defined in PersonalScheduleFragment, so it can be reused.
 
 private enum class SortType {
-    DATE, D_DAY, NAME
+    DATE, CATEGORY, NAME
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddBirthdayDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String) -> Unit,
-    initialDate: LocalDate? = null
-) {
-    var title by remember { mutableStateOf("") }
-    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now(ZoneOffset.UTC)) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            selectedDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("취소")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("생일") },
-        text = {
-            Column {
-                Box {
-                    TextField(
-                        value = selectedDate.toString(),
-                        onValueChange = {},
-                        label = { Text("날짜") },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(onClick = { showDatePicker = true })
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                TextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("이름") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        onConfirm(selectedDate, title)
-                    }
-                }
-            ) {
-                Text("확인")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EditBirthdayDialog(
-    schedule: Pair<LocalDate, Schedule>,
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String, LocalDate, String) -> Unit
-) {
-    var newTitle by remember { mutableStateOf(schedule.second.title) }
-    var newDate by remember { mutableStateOf(schedule.first) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = newDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            newDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("취소")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("생일 수정") },
-        text = {
-            Column {
-                Box {
-                    TextField(
-                        value = newDate.toString(),
-                        onValueChange = {},
-                        label = { Text("날짜") },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(onClick = { showDatePicker = true })
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                TextField(
-                    value = newTitle,
-                    onValueChange = { newTitle = it },
-                    label = { Text("이름") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (newTitle.isNotBlank()) {
-                        onConfirm(schedule.first, schedule.second.title, newDate, newTitle)
-                    }
-                }
-            ) {
-                Text("수정")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DuplicateBirthdayDialog(
-    schedule: Pair<LocalDate, Schedule>,
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String) -> Unit
-) {
-    var newDate by remember { mutableStateOf(schedule.first) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = schedule.first.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            newDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("취소")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("생일 복제") },
-        text = {
-            Column {
-                Text("'${schedule.second.title}' 생일을 복제할 날짜를 선택하세요.")
-                Spacer(modifier = Modifier.height(16.dp))
-                Box {
-                    TextField(
-                        value = newDate.toString(),
-                        onValueChange = {},
-                        label = { Text("새 날짜") },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(onClick = { showDatePicker = true })
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onConfirm(newDate, schedule.second.title)
-                    onDismiss()
-                }
-            ) {
-                Text("복제")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        }
-    )
-}
-
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -335,120 +68,36 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
     var refreshTrigger by remember { mutableIntStateOf(0) } // Use mutableIntStateOf
     var sortType by remember { mutableStateOf(SortType.DATE) }
     var showSortMenu by remember { mutableStateOf(false) }
-    val birthdayCount by produceState(initialValue = 0, key1 = refreshTrigger) {
-        value = dbHelper.getBirthdayCount()
+    val anniversaryCount by produceState(initialValue = 0, key1 = refreshTrigger) {
+        value = dbHelper.getAnniversaryCount()
+    }
+
+    val anniversaries by produceState(initialValue = emptyList<Anniversary>(), key1 = refreshTrigger, key2 = sortType) {
+        val allAnniversaries = dbHelper.getAllAnniversaries()
+        value = when (sortType) {
+            SortType.DATE -> allAnniversaries.sortedBy { it.date }
+            SortType.CATEGORY -> allAnniversaries.sortedBy { it.schedule.category }
+            SortType.NAME -> allAnniversaries.sortedBy { it.schedule.title }
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshTrigger++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     LaunchedEffect(selectedDate) {
         selectedDate?.let { date ->
             baseMonth = YearMonth.from(date)
         }
-    }
-
-    val schedules by produceState<List<Pair<LocalDate, Schedule>>>(initialValue = emptyList(), baseMonth, refreshTrigger, scheduleUpdateTrigger, sortType) {
-        val firstMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("birthday"))
-        val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("birthday"))
-
-        val allSchedulesRaw = (firstMonthSchedulesRaw.keys + secondMonthSchedulesRaw.keys).associateWith {
-            (firstMonthSchedulesRaw[it].orEmpty() + Constants.my_sep + secondMonthSchedulesRaw[it].orEmpty()).trim()
-        }
-
-        val parsedSchedules = allSchedulesRaw.entries
-            .flatMap { (date, scheduleString) ->
-                scheduleString.split(Constants.my_sep).mapNotNull { line ->
-                    if (line.isNotBlank()) {
-                        val parts = line.split('|', limit = 2)
-                        if (parts.size == 2) {
-                            date to Schedule(category = parts[0], title = parts[1])
-                        } else {
-                            null
-                        }
-                    } else {
-                        null
-                    }
-                }
-            }
-
-        value = when (sortType) {
-            SortType.DATE -> parsedSchedules.sortedBy { it.first }
-            SortType.NAME -> parsedSchedules.sortedBy { it.second.title }
-            SortType.D_DAY -> {
-                val today = LocalDate.now()
-                parsedSchedules.sortedBy { ChronoUnit.DAYS.between(it.first, today) }
-            }
-        }
-    }
-
-    var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, String>?>(null) }
-    var showAddDialog by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-    var showDuplicateDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-    var showQrCodeDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-    var expandedItem by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-
-
-    if (showDeleteDialog != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = null },
-            title = { Text("생일 삭제") },
-            text = { Text("'${showDeleteDialog!!.second}' 생일을 삭제하시겠습니까?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        dbHelper.deleteBirthday(showDeleteDialog!!.first, showDeleteDialog!!.second)
-                        refreshTrigger++
-                        showDeleteDialog = null
-                    }
-                ) {
-                    Text("삭제")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) {
-                    Text("취소")
-                }
-            }
-        )
-    }
-
-    if (showAddDialog) {
-        AddBirthdayDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { date, title ->
-                dbHelper.addBirthday(date, title)
-                refreshTrigger++
-                showAddDialog = false
-            },
-            initialDate = selectedDate
-        )
-    }
-
-    if (showEditDialog != null) {
-        EditBirthdayDialog(
-            schedule = showEditDialog!!,
-            onDismiss = { showEditDialog = null },
-            onConfirm = { oldDate, oldTitle, newDate, newTitle ->
-                dbHelper.updateBirthday(oldDate, oldTitle, newDate, newTitle)
-                refreshTrigger++
-                showEditDialog = null
-            }
-        )
-    }
-
-    if (showDuplicateDialog != null) {
-        DuplicateBirthdayDialog(
-            schedule = showDuplicateDialog!!,
-            onDismiss = { showDuplicateDialog = null },
-            onConfirm = { date, title ->
-                dbHelper.addBirthday(date, title)
-                refreshTrigger++
-                showDuplicateDialog = null
-            }
-        )
-    }
-
-    if (showQrCodeDialog != null) {
-        QrCodeDialog(schedule = showQrCodeDialog!!, onDismiss = { showQrCodeDialog = null })
     }
 
     Column(modifier = modifier) {
@@ -459,7 +108,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val monthStr = "전체 생일: ${birthdayCount}개"
+            val monthStr = "전체 기념일: ${anniversaryCount}개"
             Text(
                 text = monthStr,
                 fontWeight = FontWeight.Bold,
@@ -490,52 +139,41 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("디데이순") },
+                        text = { Text("카테고리순") },
                         onClick = {
-                            sortType = SortType.D_DAY
+                            sortType = SortType.CATEGORY
                             showSortMenu = false
                         }
                     )
                 }
             }
         }
-        if (schedules.isEmpty()) {
+
+        if (anniversaries.isEmpty()) {
             Text(
-                text = "생일 정보가 없습니다.",
+                text = "기념일이 없습니다.",
                 modifier = Modifier.padding(16.dp)
             )
         } else {
-            val today = LocalDate.now()
             LazyColumn (modifier = Modifier.fillMaxHeight()){
-                items(schedules) { (date, schedule) ->
+                items(anniversaries) { anniversary ->
+                    val date = anniversary.date
+                    val schedule = anniversary.schedule
+                    var showContextMenu by remember { mutableStateOf(false) }
                     Box {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .combinedClickable(
                                     onClick = { /* No action on simple click */ },
-                                    onLongClick = { expandedItem = date to schedule }
+                                    onLongClick = { showContextMenu = true }
                                 )
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 1번째 컬럼: D-day 값
-                            val daysDiff = ChronoUnit.DAYS.between(date, today)
-                            val diffText = when {
-                                daysDiff == 0L -> "오늘"
-                                daysDiff > 0L -> "D+$daysDiff"
-                                else -> "D$daysDiff"
-                            }
-                            val diffColor = when {
-                                daysDiff < 0L -> Color.Gray
-                                daysDiff == 0L -> Color.Red
-                                daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
-                                else -> Color.Unspecified
-                            }
-
+                            // 1번째 컬럼: 카테고리
                             Text(
-                                text = diffText,
-                                color = diffColor,
+                                text = schedule.category,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(0.25f)
                             )
@@ -543,7 +181,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                             // 2번째 컬럼: 날짜/요일 및 제목
                             Column(
                                 modifier = Modifier
-                                    .weight(0.75f)
+                                    .weight(0.5f)
                                     .padding(horizontal = 8.dp)
                             ) {
                                 val dayOfWeek = date.dayOfWeek
@@ -556,11 +194,10 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                 Text(
                                     text = buildAnnotatedString {
                                         append(date.toString())
-                                        append(" (")
+                                        append()
                                         withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
-                                            append(dayOfWeekText)
+                                            append("($dayOfWeekText)")
                                         }
-                                        append(")")
                                     },
                                     style = MaterialTheme.typography.bodyMedium
                                 )
@@ -571,35 +208,24 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                 )
                             }
 
-                            // 3번째 컬럼: 공유 버튼
-                            IconButton(onClick = { showQrCodeDialog = date to schedule }) {
-                                Icon(painter = painterResource(id = R.drawable.qr_code), contentDescription = "QR Code")
-                            }
+                            // 3번째 컬럼: 음력/양력
+                            Text(
+                                text = schedule.calendarType ?: "",
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(0.25f),
+                                textAlign = TextAlign.Center
+                            )
                         }
-
                         DropdownMenu(
-                            expanded = expandedItem == date to schedule,
-                            onDismissRequest = { expandedItem = null }
+                            expanded = showContextMenu,
+                            onDismissRequest = { showContextMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("수정") },
-                                onClick = {
-                                    showEditDialog = date to schedule
-                                    expandedItem = null
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("복제") },
-                                onClick = {
-                                    showDuplicateDialog = date to schedule
-                                    expandedItem = null
-                                }
-                            )
                             DropdownMenuItem(
                                 text = { Text("삭제") },
                                 onClick = {
-                                    showDeleteDialog = date to schedule.title
-                                    expandedItem = null
+                                    dbHelper.deleteAnniversary(anniversary.id)
+                                    showContextMenu = false
+                                    refreshTrigger++
                                 }
                             )
                         }
@@ -608,17 +234,5 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BirthDayFragmentPreview() {
-    TwocalendarTheme {
-        // Removed: val sampleSchedules = listOf(...)
-        BirthDayFragment(
-            modifier = Modifier.fillMaxSize(),
-            scheduleUpdateTrigger = 0 // Provide a default value for preview
-        )
     }
 }

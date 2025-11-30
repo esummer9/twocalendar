@@ -2,6 +2,7 @@ package com.ediapp.twocalendar
 
 import android.app.Activity
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -87,23 +88,25 @@ class AnniversaryActivity : ComponentActivity() {
                                 }
                             },
                             actions = {
-                                IconButton(onClick = { 
-                                    dbHelper.addAnniversary(
-                                        name = anniversaryData.name,
-                                        shortName = anniversaryData.shortName,
-                                        anniversaryType = anniversaryData.anniversaryType,
-                                        calendarType = anniversaryData.calendarType,
-                                        isYearAccurate = anniversaryData.isYearAccurate,
-                                        selectedDate = anniversaryData.selectedDate
-                                    )
-                                    (context as? Activity)?.finish()
+                                IconButton(onClick = {
+                                    if (anniversaryData.name.isBlank() ||
+                                        anniversaryData.anniversaryType.isBlank() ||
+                                        anniversaryData.calendarType.isBlank()) {
+                                        Toast.makeText(context, "이름, 기념일 종류, 달력 종류는 필수 항목입니다.", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        dbHelper.addAnniversary(
+                                            name = anniversaryData.name,
+                                            shortName = anniversaryData.shortName,
+                                            category = anniversaryData.anniversaryType,
+                                            calendarType = anniversaryData.calendarType,
+                                            isYearAccurate = anniversaryData.isYearAccurate,
+                                            applyDt = anniversaryData.selectedDate
+                                        )
+                                        (context as? Activity)?.finish()
+                                    }
                                 }) {
                                     Icon(painter = painterResource(id = R.drawable.save),
                                         contentDescription = stringResource(id = R.string.save_button_description), Modifier.size(40.dp))
-                                }
-                                IconButton(onClick = { /* TODO: Implement save double action */ }) {
-                                    Icon(painter = painterResource(id = R.drawable.data_add),
-                                        contentDescription = stringResource(id = R.string.save_double_button_description), Modifier.size(40.dp),)
                                 }
                             }
                         )

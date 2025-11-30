@@ -77,7 +77,7 @@ import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-data class Schedule(val category: String, val title: String)
+data class Schedule(val category: String, val title: String, val calendarType: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -573,11 +573,9 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                                 Text(
                                     text = buildAnnotatedString {
                                         append(date.toString())
-                                        append(" (")
                                         withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
-                                            append(dayOfWeekText)
+                                            append("($dayOfWeekText)")
                                         }
-                                        append(")")
                                     },
                                     style = MaterialTheme.typography.bodyMedium
                                 )
