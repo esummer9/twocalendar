@@ -462,7 +462,7 @@ fun BirthdayQrCodeDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (json != null) {
+                if (json != null && json != "" ) {
                     QrCodeImage(data = json, size = 800) // Use a smaller size for the dialog
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("다른 핸드폰에서 QR 코드를 스캔하여 생일정보를 가져올 수 있습니다.")
