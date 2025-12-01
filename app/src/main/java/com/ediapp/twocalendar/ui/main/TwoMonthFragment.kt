@@ -226,23 +226,27 @@ fun TwoMonthFragment(
 //            Log.d("holidays2", "firstMonth : $holidays")
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInFirstMonth)
-                if (holidays.any { (date, description) -> YearMonth.from(date) == firstMonth && description.contains("personal") }) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
+            }
+            if (holidays.any { (date, description) -> YearMonth.from(date) == firstMonth && description.contains("personal") }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = { showHolidayListInFirstMonth = !showHolidayListInFirstMonth },
+                        enabled = visibleCalList
                     ) {
-                        IconButton(onClick = { showHolidayListInFirstMonth = !showHolidayListInFirstMonth }) {
-                            Icon(
-                                imageVector = if (!showHolidayListInFirstMonth) Icons.Filled.Info else Icons.Filled.Close,
-                                contentDescription = "개인일정 목록 보기 토글"
-                            )
-                        }
+                        Icon(
+                            imageVector = if (!showHolidayListInFirstMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            contentDescription = "개인일정 목록 보기 토글"
+                        )
                     }
                 }
             }
+
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -260,23 +264,27 @@ fun TwoMonthFragment(
 //            Log.d("holidays3", "secondMonth : $holidays")
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInSecondMonth)
-                if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && description.contains("personal") }) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
+            }
+            if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && description.contains("personal") }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = { showHolidayListInSecondMonth = !showHolidayListInSecondMonth },
+                        enabled = visibleCalList
                     ) {
-                        IconButton(onClick = { showHolidayListInSecondMonth = !showHolidayListInSecondMonth }) {
-                            Icon(
-                                imageVector = if (!showHolidayListInSecondMonth) Icons.Filled.Info else Icons.Filled.Close,
-                                contentDescription = "개인일정 목록 보기 토글"
-                            )
-                        }
+                        Icon(
+                            imageVector = if (!showHolidayListInSecondMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            contentDescription = "개인일정 목록 보기 토글"
+                        )
                     }
                 }
             }
+
 
         }
     }
