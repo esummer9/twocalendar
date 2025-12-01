@@ -210,9 +210,9 @@ class QRCodeActivity : ComponentActivity() {
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Image(
-                                        painter = painterResource(id = R.drawable.import_qrcode),
+                                        painter = painterResource(id = R.drawable.calendar_512),
                                         contentDescription = "Personal QR Code",
-                                        modifier = Modifier.size(300.dp)
+                                        modifier = Modifier.size(150.dp),
                                     )
                                     Button(onClick = {
                                         val options = ScanOptions()
@@ -234,9 +234,9 @@ class QRCodeActivity : ComponentActivity() {
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Image(
-                                        painter = painterResource(id = R.drawable.import_qrcode),
+                                        painter = painterResource(id = R.drawable.confetti),
                                         contentDescription = "Anniversary QR Code",
-                                        modifier = Modifier.size(300.dp)
+                                        modifier = Modifier.size(150.dp)
                                     )
                                     Button(onClick = {
                                         val options = ScanOptions()
