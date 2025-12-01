@@ -417,7 +417,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                                         val category = anniversary.schedule.category
 
                                                         var title = anniversary.schedule.title
-                                                        if (title == "생일")
+                                                        if (category == "생일" || category == "기념일" )
                                                             title = if (title.contains(category)) title else "$title - $category"
 
                                                         dbHelper.addBirthdayToSchedule(
