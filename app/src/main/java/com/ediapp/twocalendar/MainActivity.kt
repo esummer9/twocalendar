@@ -90,19 +90,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Calendar
 
-fun isEmulator(): Boolean {
-    Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
-    return (Build.FINGERPRINT.startsWith("generic")
-            || Build.FINGERPRINT.startsWith("unknown")
-            || Build.MODEL.contains("google_sdk")
-            || Build.MODEL.contains("sdk_gphone64")
-            || Build.MODEL.contains("Emulator")
-            || Build.MODEL.contains("Android SDK built for x86")
-            || Build.MANUFACTURER.contains("Genymotion")
-            || Build.BRAND.startsWith("generic")
-            && Build.DEVICE.startsWith("generic")
-            || "google_sdk" == Build.PRODUCT)
-}
+
 class MainActivity : ComponentActivity() {
     private val dbHelper by lazy { DatabaseHelper(this) }
     private lateinit var holidayNotificationScheduler: HolidayNotificationScheduler
@@ -132,7 +120,9 @@ class MainActivity : ComponentActivity() {
         FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         MobileAds.initialize(this)
         val androidId = getAndroidId(this) // Renamed variable
+
         Log.d(TAG, "Android ID: $androidId")
+
         holidayNotificationScheduler = HolidayNotificationScheduler(this)
         // Request POST_NOTIFICATIONS permission if on Android 13 (API 33) or higher
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -346,7 +336,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("오늘", "1+1 달", "개인일정", stringResource(id = R.string.birthday))
+    val tabTitles = listOf("오늘", "1+1달력", "개인일정", stringResource(id = R.string.anniversary))
     val pagerState = rememberPagerState(initialPage = 0) { tabTitles.size }
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -527,6 +517,21 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         }
     }
 }
+
+fun isEmulator(): Boolean {
+    Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
+    return (Build.FINGERPRINT.startsWith("generic")
+            || Build.FINGERPRINT.startsWith("unknown")
+            || Build.MODEL.contains("google_sdk")
+            || Build.MODEL.contains("sdk_gphone64")
+            || Build.MODEL.contains("Emulator")
+            || Build.MODEL.contains("Android SDK built for x86")
+            || Build.MANUFACTURER.contains("Genymotion")
+            || Build.BRAND.startsWith("generic")
+            && Build.DEVICE.startsWith("generic")
+            || "google_sdk" == Build.PRODUCT)
+}
+
 @Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {

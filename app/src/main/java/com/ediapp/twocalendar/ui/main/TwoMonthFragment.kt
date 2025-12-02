@@ -136,7 +136,7 @@ fun TwoMonthFragment(
 
     val onDateClick = { date: LocalDate ->
         val holiday = holidays[date]
-        if (holiday?.contains("personal") == true) {
+        if (holiday != null && (holiday.contains("personal") || holiday.contains("생일") || holiday.contains("기념일"))) {
             onNavigateToPersonalSchedule(date) // Call the new callback
         }
     }
@@ -230,7 +230,7 @@ fun TwoMonthFragment(
 
             if (holidays.any { (date, description) ->
 //                Log.d("holidays", "visible:$visibleCalList | $holidays $description")
-                YearMonth.from(date) == firstMonth && description.contains("personal") }) {
+                YearMonth.from(date) == firstMonth && (description.contains("personal") || description.contains("생일") || description.contains("기념일")) }) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -268,7 +268,7 @@ fun TwoMonthFragment(
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInSecondMonth)
             }
-            if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && description.contains("personal") }) {
+            if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && (description.contains("personal") || description.contains("생일") || description.contains("기념일")) }) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -398,7 +398,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                         var dayColor = Color.Black
                         if (holiday != null) {
                             val isHoliday = holiday.contains("holiday")
-                            val isPersonal = holiday.contains("personal")
+                            val isPersonal = holiday.contains("personal") || holiday.contains("생일") || holiday.contains("기념일")
 
                             dayColor = when {
                                 isHoliday && isPersonal -> Color(0xFF800080)
@@ -505,7 +505,7 @@ fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible:
                             ) {
                                 Text(text = "${date.dayOfMonth}일: $scheduleTitle", fontSize = 14.sp)
 
-                                if (type == "personal") {
+                                if (type == "personal" || type == "생일" || type == "기념일") {
                                     IconButton(onClick = {
                                         val intent = Intent(Intent.ACTION_INSERT).apply {
                                             data = CalendarContract.Events.CONTENT_URI
