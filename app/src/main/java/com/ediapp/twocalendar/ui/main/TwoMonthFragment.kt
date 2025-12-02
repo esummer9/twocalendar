@@ -227,7 +227,10 @@ fun TwoMonthFragment(
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInFirstMonth)
             }
-            if (holidays.any { (date, description) -> YearMonth.from(date) == firstMonth && description.contains("personal") }) {
+
+            if (holidays.any { (date, description) ->
+//                Log.d("holidays", "visible:$visibleCalList | $holidays $description")
+                YearMonth.from(date) == firstMonth && description.contains("personal") }) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
