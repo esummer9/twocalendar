@@ -441,8 +441,10 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         },
         bottomBar = {
             Column {
-                if (pagerState.currentPage != 1) { // TwoMonthFragment (now at index 1) is where the banner should be hidden
-                    AdmobBanner(modifier = Modifier.padding(10.dp))
+                if (pagerState.currentPage != 1) {
+                    // TwoMonthFragment (now at index 1) is where the banner should be hidden
+                    if(true)
+                        AdmobBanner(modifier = Modifier.padding(10.dp))
                 }
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),

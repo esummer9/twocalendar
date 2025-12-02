@@ -135,11 +135,15 @@ class GuideActivity : ComponentActivity() {
 fun GuideScreen(onNavigateUp: () -> Unit) { // 람다 파라미터 추가
     val activity = LocalContext.current as Activity
     val images = listOf(
-        R.drawable.guide_1,
-        R.drawable.guide_2,
-        R.drawable.guide_3,
+        R.drawable.guide_1_1,
+        R.drawable.guide_2_1,
         R.drawable.guide_3_1,
-        R.drawable.guide_3_2
+        R.drawable.guide_3_2,
+        R.drawable.guide_4_1,
+        R.drawable.guide_4_2,
+        R.drawable.guide_4_4,
+        R.drawable.guide_5_1,
+        R.drawable.guide_5_2
     )
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { images.size })
 
