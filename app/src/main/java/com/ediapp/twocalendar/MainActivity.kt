@@ -79,7 +79,6 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
-import com.google.firebase.FirebaseApp // Added import for FirebaseApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -117,7 +116,6 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(this, GuideActivity::class.java))
         }
 
-        FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         MobileAds.initialize(this)
         val androidId = getAndroidId(this) // Renamed variable
 

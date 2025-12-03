@@ -65,7 +65,6 @@ import kotlinx.coroutines.CoroutineScope
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.google.firebase.FirebaseApp // Added import for FirebaseApp
 
 // Placeholder DatabaseHelper for demonstration. 
 // Replace with your actual DatabaseHelper if it exists and has similar functionality.
@@ -77,7 +76,6 @@ class BackupActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         enableEdgeToEdge()
 
         val sharedPreferences = getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)

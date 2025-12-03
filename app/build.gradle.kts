@@ -78,4 +78,6 @@ dependencies {
 
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
+    // Move the Google Services plugin to the end of the file
+    apply(plugin = "com.google.gms.google-services")
 }
