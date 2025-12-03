@@ -10,6 +10,7 @@ import androidx.core.database.sqlite.transaction
 import com.ediapp.twocalendar.ui.main.Schedule
 import com.google.gson.Gson
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import kotlin.random.Random
 
@@ -617,5 +618,35 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             }
         }
         return personalSchedules
+    }
+
+    fun restoreDays(days: List<DayRecord>): Int {
+        val db = this.writableDatabase
+        var successCount = 0
+        db.transaction {
+            for (day in days) {
+                val values = ContentValues().apply {
+                    put(COL_SOURCE, day.source)
+                    put(COL_CATEGORY, day.category)
+                    put(COL_TYPE, day.type)
+                    put(COL_DATA_KEY, day.dataKey)
+                    put(COL_APPLY_DT, day.applyDt)
+                    put(COL_TITLE, day.title)
+                    put(COL_ALIAS, day.alias)
+                    put(COL_VALUE, day.value)
+                    put(COL_MESSAGE, day.message)
+                    put(COL_DESCRIPTION, day.description)
+                    put(COL_REGISTERED_AT, day.registeredAt)
+                    put(COL_CREATED_AT, LocalDateTime.now().toString())
+                    put(COL_DELETED_AT, day.deletedAt)
+                    put(COL_STATUS, day.status)
+                }
+                val result = db.insertWithOnConflict(TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                if (result != -1L) {
+                    successCount++
+                }
+            }
+        }
+        return successCount
     }
 }
