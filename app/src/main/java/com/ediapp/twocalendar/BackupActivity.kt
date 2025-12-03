@@ -321,12 +321,12 @@ fun RestoreSection(modifier: Modifier = Modifier, dbHelper: DatabaseHelper) {
                                         val typeToken = object : TypeToken<List<DayRecord>>() {}.type
                                         val daysToRestore: List<DayRecord> = gson.fromJson(jsonString, typeToken)
 
-                                        Log.d("RestoreSection", "daysToRestore: $daysToRestore")
+//                                        Log.d("RestoreSection", "daysToRestore: $daysToRestore")
 
                                         val successCount = dbHelper.restoreDays(daysToRestore)
 
                                         Toast.makeText(context, "총 ${daysToRestore.size}건 중 ${successCount}건 복원 성공!", Toast.LENGTH_SHORT).show()
-                                        Log.d("RestoreSection", "Restore successful")
+//                                        Log.d("RestoreSection", "Restore successful")
                                     } catch (e: Exception) {
                                         Toast.makeText(context, "복원 데이터 처리 중 오류: ${e.message}", Toast.LENGTH_LONG).show()
                                         Log.e("RestoreSection", "Error processing restored data", e)
