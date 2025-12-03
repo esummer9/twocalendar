@@ -98,6 +98,8 @@ fun TwoMonthFragment(
         }
         if (allSelectedSchedules.isNotEmpty()) {
             categories.add("personal")
+            categories.add("생일")
+            categories.add("기념일")
         }
 
         if (categories.isEmpty()) {
@@ -109,13 +111,14 @@ fun TwoMonthFragment(
             if (allSelectedSchedules.isNotEmpty()) {
                 allSchedules.mapValues { (_, descriptions) ->
                     descriptions.split(my_sep).filter { desc ->
-                        val parts = desc.split('|', limit = 2)
-                        if (parts.size < 2) return@filter false
-                        val category = parts[0]
-                        val title = parts[1]
-                        if (category == "personal") {
+                        val parts = desc.split('|')
+                        if (parts.size < 3) return@filter true
+
+                        val category = parts[1]
+                        val title = parts[2]
+                        if (category == "personal" || category == "생일" || category == "기념일") {
                             title in allSelectedSchedules
-                        } else { // holiday or national_holiday
+                        } else {
                             true
                         }
                     }.joinToString(my_sep)
@@ -133,7 +136,7 @@ fun TwoMonthFragment(
 
     val onDateClick = { date: LocalDate ->
         val holiday = holidays[date]
-        if (holiday?.contains("personal") == true) {
+        if (holiday != null && (holiday.contains("personal") || holiday.contains("생일") || holiday.contains("기념일"))) {
             onNavigateToPersonalSchedule(date) // Call the new callback
         }
     }
@@ -223,23 +226,30 @@ fun TwoMonthFragment(
 //            Log.d("holidays2", "firstMonth : $holidays")
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = firstMonth, visible = showHolidayListInFirstMonth)
-                if (holidays.any { (date, description) -> YearMonth.from(date) == firstMonth && description.contains("personal") }) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
+            }
+
+            if (holidays.any { (date, description) ->
+//                Log.d("holidays", "visible:$visibleCalList | $holidays $description")
+                YearMonth.from(date) == firstMonth && (description.contains("personal") || description.contains("생일") || description.contains("기념일")) }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = { showHolidayListInFirstMonth = !showHolidayListInFirstMonth },
+                        enabled = visibleCalList
                     ) {
-                        IconButton(onClick = { showHolidayListInFirstMonth = !showHolidayListInFirstMonth }) {
-                            Icon(
-                                imageVector = if (!showHolidayListInFirstMonth) Icons.Filled.Info else Icons.Filled.Close,
-                                contentDescription = "개인일정 목록 보기 토글"
-                            )
-                        }
+                        Icon(
+                            imageVector = if (!showHolidayListInFirstMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            contentDescription = "개인일정 목록 보기 토글"
+                        )
                     }
                 }
             }
+
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -257,23 +267,27 @@ fun TwoMonthFragment(
 //            Log.d("holidays3", "secondMonth : $holidays")
             if(visibleCalList) {
                 HolidayList(holidays = holidays, yearMonth = secondMonth, visible = showHolidayListInSecondMonth)
-                if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && description.contains("personal") }) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
+            }
+            if (holidays.any { (date, description) -> YearMonth.from(date) == secondMonth && (description.contains("personal") || description.contains("생일") || description.contains("기념일")) }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = { showHolidayListInSecondMonth = !showHolidayListInSecondMonth },
+                        enabled = visibleCalList
                     ) {
-                        IconButton(onClick = { showHolidayListInSecondMonth = !showHolidayListInSecondMonth }) {
-                            Icon(
-                                imageVector = if (!showHolidayListInSecondMonth) Icons.Filled.Info else Icons.Filled.Close,
-                                contentDescription = "개인일정 목록 보기 토글"
-                            )
-                        }
+                        Icon(
+                            imageVector = if (!showHolidayListInSecondMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            contentDescription = "개인일정 목록 보기 토글"
+                        )
                     }
                 }
             }
+
 
         }
     }
@@ -384,7 +398,7 @@ fun MonthCalendar(yearMonth: YearMonth, holidays: Map<LocalDate, String>, modifi
                         var dayColor = Color.Black
                         if (holiday != null) {
                             val isHoliday = holiday.contains("holiday")
-                            val isPersonal = holiday.contains("personal")
+                            val isPersonal = holiday.contains("personal") || holiday.contains("생일") || holiday.contains("기념일")
 
                             dayColor = when {
                                 isHoliday && isPersonal -> Color(0xFF800080)
@@ -476,10 +490,13 @@ fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible:
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 monthSchedulesByDate.forEach { (date, schedules) ->
                     schedules.forEach { scheduleDescription ->
-                        val parts = scheduleDescription.split('|', limit = 2)
-                        val type = parts.getOrNull(0)
-                        val scheduleTitle = parts.getOrNull(1)
 
+
+                        val parts = scheduleDescription.split('|')
+                        val type = parts.getOrNull(1)
+                        val scheduleTitle = parts.getOrNull(2)
+
+                        Log.d("TwoMonthFragment", "Check List 2: $scheduleDescription | $type | $scheduleTitle")
                         if (scheduleTitle != null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -488,7 +505,7 @@ fun HolidayList(holidays: Map<LocalDate, String>, yearMonth: YearMonth, visible:
                             ) {
                                 Text(text = "${date.dayOfMonth}일: $scheduleTitle", fontSize = 14.sp)
 
-                                if (type == "personal") {
+                                if (type == "personal" || type == "생일" || type == "기념일") {
                                     IconButton(onClick = {
                                         val intent = Intent(Intent.ACTION_INSERT).apply {
                                             data = CalendarContract.Events.CONTENT_URI

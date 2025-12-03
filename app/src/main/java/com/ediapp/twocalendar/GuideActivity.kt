@@ -1,6 +1,7 @@
 package com.ediapp.twocalendar
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,15 +62,22 @@ class GuideActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                showAdOrFinish()
+                showInterstitialAndFinish()
             }
         })
 
         setContent {
             TwocalendarTheme {
-                GuideScreen(onNavigateUp = { showAdOrFinish() })
+                GuideScreen(onNavigateUp = { showInterstitialAndFinish() })
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        sharedPreferences.edit().putInt("view_guide_count", viewGuideCount + 1).apply()
     }
 
     private fun loadInterstitialAd() {
@@ -88,28 +96,34 @@ class GuideActivity : ComponentActivity() {
         })
     }
 
-    private fun showAdOrFinish() {
-        if (mInterstitialAd != null) {
-            Log.d(tag, "Attempting to show interstitial ad.")
-            mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d(tag, "Ad was dismissed.")
-                    finish()
-                }
+    private fun showInterstitialAndFinish() {
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        if (viewGuideCount % 5 == 4) {
+            if (mInterstitialAd != null) {
+                Log.d(tag, "Attempting to show interstitial ad.")
+                mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        Log.d(tag, "Ad was dismissed.")
+                        finish()
+                    }
 
-                override fun onAdFailedToShowFullScreenContent(adError: com.google.android.gms.ads.AdError) {
-                    Log.d(tag, "Ad failed to show.")
-                    finish()
-                }
+                    override fun onAdFailedToShowFullScreenContent(adError: com.google.android.gms.ads.AdError) {
+                        Log.d(tag, "Ad failed to show.")
+                        finish()
+                    }
 
-                override fun onAdShowedFullScreenContent() {
-                    Log.d(tag, "Ad showed fullscreen content.")
-                    mInterstitialAd = null
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d(tag, "Ad showed fullscreen content.")
+                        mInterstitialAd = null
+                    }
                 }
+                mInterstitialAd?.show(this@GuideActivity)
+            } else {
+                Log.d(tag, "The interstitial ad wasn't ready yet or failed to load. Finishing activity.")
+                finish()
             }
-            mInterstitialAd?.show(this@GuideActivity)
         } else {
-            Log.d(tag, "The interstitial ad wasn't ready yet or failed to load. Finishing activity.")
             finish()
         }
     }
@@ -121,18 +135,22 @@ class GuideActivity : ComponentActivity() {
 fun GuideScreen(onNavigateUp: () -> Unit) { // 람다 파라미터 추가
     val activity = LocalContext.current as Activity
     val images = listOf(
-        R.drawable.guide_1,
-        R.drawable.guide_2,
-        R.drawable.guide_3,
+        R.drawable.guide_1_1,
+        R.drawable.guide_2_1,
         R.drawable.guide_3_1,
-        R.drawable.guide_3_2
+        R.drawable.guide_3_2,
+        R.drawable.guide_4_1,
+        R.drawable.guide_4_2,
+        R.drawable.guide_4_4,
+        R.drawable.guide_5_1,
+        R.drawable.guide_5_2
     )
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { images.size })
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Guide") },
+                title = { Text(text = "가이드") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) { // 여기서 람다 호출
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

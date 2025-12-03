@@ -5,12 +5,13 @@ import android.provider.Settings
 
 object Constants {
 
-    val my_sep = ";;;"
+    const val my_sep = ";;;"
 
-    // AdMob Ad Unit IDs
-    const val AD_UNIT_ID_BANNER = "ca-app-pub-9901915016619662/9566315087"
-    const val AD_UNIT_ID_INTERSTITIAL = "ca-app-pub-9901915016619662/4473323393"
+    const val AD_UNIT_ID_BANNER = "ca-app-pub-9901915016619662/1142552664"
+    // 전면 ca-app-pub-9901915016619662/5677404488
+    const val AD_UNIT_ID_INTERSTITIAL = "ca-app-pub-9901915016619662/5677404488"
 
+    val DAYS_CATEGORIES = listOf("personal","생일","기타")
 
     data class ApiConfig(
         val baseUrl: String,
@@ -31,6 +32,11 @@ object Constants {
         ),
         "HOLIDAY" to ApiConfig(
             baseUrl = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/",
+            serviceKey = "MzfGSuOeRsHJxatg9rabhIC/8lw/f95wNLGSGakqMb40S/Orp+UrYhLEtTznRzBLWFePFHTsYARFSn1L2PQLGA==",
+            description = "공휴일 정보 조회"
+        ),
+        "LUNAR" to ApiConfig(
+            baseUrl = "https://apis.data.go.kr/B090041/openapi/service/LrsrCldInfoService/",
             serviceKey = "MzfGSuOeRsHJxatg9rabhIC/8lw/f95wNLGSGakqMb40S/Orp+UrYhLEtTznRzBLWFePFHTsYARFSn1L2PQLGA==",
             description = "공휴일 정보 조회"
         )

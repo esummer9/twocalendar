@@ -1,14 +1,13 @@
 package com.ediapp.twocalendar
-import android.app.DatePickerDialog
+
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.DatePicker
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,8 +37,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,9 +49,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,11 +66,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.ediapp.twocalendar.ui.main.BirthDayFragment
 import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
 import com.ediapp.twocalendar.ui.main.TwoMonthFragment
@@ -84,33 +80,17 @@ import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.FirebaseApp // Added import for FirebaseApp
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
-import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
-fun isEmulator(): Boolean {
-    Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
-    return (Build.FINGERPRINT.startsWith("generic")
-            || Build.FINGERPRINT.startsWith("unknown")
-            || Build.MODEL.contains("google_sdk")
-            || Build.MODEL.contains("sdk_gphone64")
-            || Build.MODEL.contains("Emulator")
-            || Build.MODEL.contains("Android SDK built for x86")
-            || Build.MANUFACTURER.contains("Genymotion")
-            || Build.BRAND.startsWith("generic")
-            && Build.DEVICE.startsWith("generic")
-            || "google_sdk" == Build.PRODUCT)
-}
+
+
 class MainActivity : ComponentActivity() {
     private val dbHelper by lazy { DatabaseHelper(this) }
     private lateinit var holidayNotificationScheduler: HolidayNotificationScheduler
@@ -130,10 +110,19 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        if (viewGuideCount < 5 || viewGuideCount % 20 == 1) {
+            startActivity(Intent(this, GuideActivity::class.java))
+        }
+
         FirebaseApp.initializeApp(this) // Initialize FirebaseApp here
         MobileAds.initialize(this)
         val androidId = getAndroidId(this) // Renamed variable
+
         Log.d(TAG, "Android ID: $androidId")
+
         holidayNotificationScheduler = HolidayNotificationScheduler(this)
         // Request POST_NOTIFICATIONS permission if on Android 13 (API 33) or higher
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -198,7 +187,7 @@ class MainActivity : ComponentActivity() {
                         val category = apiKey.lowercase()
                         if (dbHelper.countDaysByCategoryAndYear(category, year) == 0) {
                             val holidayApiConfig = Constants.API_CONFIGS[apiKey]
-                                ?: throw IllegalArgumentException("API config for $apiKey not found")
+                                ?: throw IllegalArgumentException("API config for ${'$'}apiKey not found")
                             val retrofit = Retrofit.Builder()
                                 .baseUrl(holidayApiConfig.baseUrl)
                                 .addConverterFactory(SimpleXmlConverterFactory.create())
@@ -224,10 +213,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
-                                    Log.e("MainActivity", "Error fetching holidays for $apiKey: ${response.errorBody()?.string()}")
+                                    Log.e("MainActivity", "Error fetching holidays for ${'$'}apiKey: ${'$'}{response.errorBody()?.string()}")
                                 }
                             } catch (e: Exception) {
-                                Log.e("MainActivity", "Exception fetching holidays for $apiKey", e)
+                                Log.e("MainActivity", "Exception fetching holidays for ${'$'}apiKey", e)
                             }
                         }
                     }
@@ -278,6 +267,7 @@ fun PersonalScheduleSelectionDialog(
                                     } else {
                                         newSelection.add(schedule)
                                     }
+                        Log.d("MainActivity", "Check List : Schedule: $schedule | $newSelection")
                                     currentSelection = newSelection
                                 }
                                 .padding(vertical = 8.dp)
@@ -303,6 +293,7 @@ fun PersonalScheduleSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(currentSelection.toList(), holidaysChecked) }) {
+
                 Text("확인")
             }
         },
@@ -313,102 +304,8 @@ fun PersonalScheduleSelectionDialog(
         }
     )
 }
-// New Composable for adding personal schedules
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddPersonalScheduleDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String) -> Unit,
-    initialTitle: String = "",
-    initialDate: LocalDate? = null
-) {
-    val context = LocalContext.current
-    var selectedDate by remember { mutableStateOf(initialDate ?: LocalDate.now()) }
-    var title by remember { mutableStateOf(initialTitle) }
-    val year = selectedDate.year
-    val month = selectedDate.monthValue - 1 // DatePickerDialog month is 0-indexed
-    val day = selectedDate.dayOfMonth
-    val datePickerDialog = DatePickerDialog(
-        context,
-        { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
-            selectedDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDayOfMonth)
-        }, year, month, day
-    )
-    var showDatePicker by remember { mutableStateOf(false) }
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("취소")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("개인일정 추가") },
-        text = {
-            Column {
-                Box {
-                    TextField(
-                        value = selectedDate.toString(),
-                        onValueChange = { },
-                        label = { Text("날짜") },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(onClick = { showDatePicker = true })
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                TextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("제목") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        onConfirm(selectedDate, title)
-                    }
-                }
-            ) {
-                Text("저장")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        }
-    )
-}
+
 @Composable
 fun AdmobBanner(modifier: Modifier = Modifier) {
     val configuration = LocalConfiguration.current
@@ -439,85 +336,21 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
     var menuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val tabTitles = listOf("1+1 달", "오늘", "개인일정")
-    val pagerState = rememberPagerState(initialPage = 1) { tabTitles.size }
+    val tabTitles = listOf("오늘", "1+1달력", "개인일정", stringResource(id = R.string.anniversary))
+    val pagerState = rememberPagerState(initialPage = 0) { tabTitles.size }
     var showScheduleDialog by remember { mutableStateOf(false) }
     var selectedSchedules by remember { mutableStateOf<List<String>>(emptyList()) }
     var showHolidays by remember { mutableStateOf(true) }
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     var scheduleUpdateTrigger by remember { mutableIntStateOf(0) }
     var selectedDateForPersonalSchedule by remember { mutableStateOf<LocalDate?>(null) }
-    var showAddScheduleDialog by remember { mutableStateOf(false) }
-    var qrCodeScheduleTitle by remember { mutableStateOf<String?>(null) }
-    var qrCodeScheduleDate by remember { mutableStateOf<LocalDate?>(null) }
     var backupCalendarEnabledByRemoteConfig by remember { mutableStateOf(false) } // Placeholder for Remote Config value
-    // TODO: Implement Firebase Remote Config to update backupCalendarEnabledByRemoteConfig.
-    // Example:
-    /*
-    LaunchedEffect(Unit) {
-        val remoteConfig = Firebase.remoteConfig
-        remoteConfig.fetchAndActivate()
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val updated = task.result
-                    Log.d("RemoteConfig", "Config params updated: $updated")
-                    backupCalendarEnabledByRemoteConfig = remoteConfig.getBoolean("backup_calendar_enabled")
-                } else {
-                    Log.e("RemoteConfig", "Config fetch failed")
-                }
-            }
-    }
-    */
-    val qrCodeScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let { contents ->
-            val parts = contents.split('|', limit = 2)
-            if (parts.size == 2) {
-                try {
-                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                    qrCodeScheduleDate = LocalDate.parse(parts[0], formatter)
-                    qrCodeScheduleTitle = parts[1]
-                } catch (e: Exception) {
-                    Toast.makeText(context, "날짜 형식 오류. YYYY-MM-DD 형식을 사용하세요.", Toast.LENGTH_LONG).show()
-                    qrCodeScheduleTitle = contents
-                    qrCodeScheduleDate = null
-                }
-            } else {
-                qrCodeScheduleTitle = contents
-                qrCodeScheduleDate = null
-            }
-        } ?: run {
-            Toast.makeText(context, "Cancelled", Toast.LENGTH_LONG).show()
-        }
-    }
-    if (qrCodeScheduleTitle != null) {
-        AddPersonalScheduleDialog(
-            onDismiss = {
-                qrCodeScheduleTitle = null
-                qrCodeScheduleDate = null
-            },
-            onConfirm = { date, title ->
-                coroutineScope.launch(Dispatchers.IO) {
-                    dbHelper.addDay(
-                        source = "qr_code",
-                        category = "personal",
-                        type = "date",
-                        dataKey = date.format(DateTimeFormatter.ofPattern("yyyyMMdd")), // YYYYMMDD format
-                        title = title
-                    )
-                    scheduleUpdateTrigger++
-                }
-                qrCodeScheduleTitle = null
-                qrCodeScheduleDate = null
-            },
-            initialTitle = qrCodeScheduleTitle ?: "",
-            initialDate = qrCodeScheduleDate
-        )
-    }
 
     if (showScheduleDialog) {
         val allSchedules by produceState(initialValue = emptyList(), dbHelper, currentYearMonth, scheduleUpdateTrigger) {
             value = withContext(Dispatchers.IO) {
-                dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth) + dbHelper.getDistinctScheduleTitlesForMonth("personal", currentYearMonth.plusMonths(1))
+                dbHelper.getDistinctScheduleTitlesForMonth(Constants.DAYS_CATEGORIES, currentYearMonth) +
+                        dbHelper.getDistinctScheduleTitlesForMonth(Constants.DAYS_CATEGORIES, currentYearMonth.plusMonths(1))
             }
         }
         PersonalScheduleSelectionDialog(
@@ -531,24 +364,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                 selectedSchedules = newSelection
                 showHolidays = newShowHolidays
                 showScheduleDialog = false
-            }
-        )
-    }
-    if (showAddScheduleDialog) {
-        AddPersonalScheduleDialog(
-            onDismiss = { showAddScheduleDialog = false },
-            onConfirm = { date, title ->
-                coroutineScope.launch(Dispatchers.IO) {
-                    dbHelper.addDay(
-                        source = "user_input",
-                        category = "personal",
-                        type = "date",
-                        dataKey = date.format(DateTimeFormatter.ofPattern("yyyyMMdd")), // YYYYMMDD format
-                        title = title
-                    )
-                    scheduleUpdateTrigger++
-                }
-                showAddScheduleDialog = false
             }
         )
     }
@@ -568,6 +383,13 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
+                                text = { Text("QR Code 읽기") },
+                                onClick = {
+                                    context.startActivity(Intent(context, QRCodeActivity::class.java))
+                                    menuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("설정") },
                                 onClick = {
                                     context.startActivity(Intent(context, SettingsActivity::class.java))
@@ -583,7 +405,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("가이드") },
+                                text = { Text("가이드 보기") },
                                 onClick = {
                                     context.startActivity(Intent(context, GuideActivity::class.java))
                                     menuExpanded = false
@@ -593,38 +415,36 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                     }
                 },
                 actions = {
-                    if (pagerState.currentPage == 0) {
-                        IconButton(onClick = {
-                            showScheduleDialog = true
-                        }) {
-                            Icon(painter = painterResource(id = R.drawable.double_check), contentDescription = "Double Check")
+                    when (pagerState.currentPage) {
+                        1 -> { // "1+1 달"
+                            IconButton(onClick = {
+                                showScheduleDialog = true
+                            }) {
+                                Icon(painter = painterResource(id = R.drawable.double_check),
+                                    modifier = Modifier.size(30.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    contentDescription = "Double Check")
+                            }
                         }
-                    } else {
-                        IconButton(onClick = {
-                            val options = ScanOptions()
-                            options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            options.setPrompt("다른 장치의 일정 QR Code를 스캔하세요.")
-                            options.setCameraId(0) // Use a specific camera of the device
-                            options.setBeepEnabled(false)
-                            options.setBarcodeImageEnabled(false)
-//                            options.setOrientationLocked(true)
-                            qrCodeScannerLauncher.launch(options)
-                        }) {
-                            Icon(painter = painterResource(id = R.drawable.qr_code_read), contentDescription = "QR Code Read")
+                        2 -> { // "개인일정"
+
                         }
-                    }
-                    IconButton(onClick = {
-                        showAddScheduleDialog = true
-                    }) {
-                        Icon(painter = painterResource(id = R.drawable.add), contentDescription = "개인일정 추가")
+                        3 -> {
+                            // 생일 QR Code 읽어오기 버튼 제거
+                        }
+                        else -> { // "오늘", "개인일정"
+
+                        }
                     }
                 }
             )
         },
         bottomBar = {
             Column {
-                if (pagerState.currentPage != 0) { // TwoMonthFragment가 아닐 때만 AdmobBanner 표시
-                    AdmobBanner(modifier = Modifier.padding(10.dp))
+                if (pagerState.currentPage != 1) {
+                    // TwoMonthFragment (now at index 1) is where the banner should be hidden
+                    if(true)
+                        AdmobBanner(modifier = Modifier.padding(10.dp))
                 }
                 TabRow(
                     modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
@@ -669,7 +489,8 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
             verticalAlignment = Alignment.Top
         ) {
             when (it) {
-                0 -> TwoMonthFragment(
+                0 -> TodayFragment()
+                1 -> TwoMonthFragment(
                     modifier = Modifier.fillMaxHeight(),
                     fetchHolidaysForYear = fetchHolidaysForYear,
                     visibleCalList = true,
@@ -684,16 +505,35 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                     },
                     scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
                 )
-                1 -> TodayFragment()
                 2 -> PersonalScheduleFragment(
                     modifier = Modifier.fillMaxHeight(),
                     selectedDate = selectedDateForPersonalSchedule,
                     scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
                 )
+                3 -> BirthDayFragment(
+                    modifier = Modifier.fillMaxHeight(),
+                    selectedDate = selectedDateForPersonalSchedule,
+                    scheduleUpdateTrigger = scheduleUpdateTrigger
+                )
             }
         }
     }
 }
+
+fun isEmulator(): Boolean {
+    Log.d("isEmulator", "Build.MODEL: ${Build.MODEL}")
+    return (Build.FINGERPRINT.startsWith("generic")
+            || Build.FINGERPRINT.startsWith("unknown")
+            || Build.MODEL.contains("google_sdk")
+            || Build.MODEL.contains("sdk_gphone64")
+            || Build.MODEL.contains("Emulator")
+            || Build.MODEL.contains("Android SDK built for x86")
+            || Build.MANUFACTURER.contains("Genymotion")
+            || Build.BRAND.startsWith("generic")
+            && Build.DEVICE.startsWith("generic")
+            || "google_sdk" == Build.PRODUCT)
+}
+
 @Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {

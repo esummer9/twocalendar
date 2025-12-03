@@ -92,26 +92,32 @@ class SettingsActivity : ComponentActivity() {
     }
 
     private fun showInterstitialAndFinish() {
-        if (mInterstitialAd != null) {
-            mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d(TAG, "Ad was dismissed.")
-                    finish()
-                }
+        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val viewGuideCount = sharedPreferences.getInt("view_guide_count", 0)
+        if (viewGuideCount % 4 == 3) {
+            if (mInterstitialAd != null) {
+                mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        Log.d(TAG, "Ad was dismissed.")
+                        finish()
+                    }
 
-                override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                    Log.d(TAG, "Ad failed to show fullscreen content.")
-                    finish()
-                }
+                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        Log.d(TAG, "Ad failed to show fullscreen content.")
+                        finish()
+                    }
 
-                override fun onAdShowedFullScreenContent() {
-                    Log.d(TAG, "Ad showed fullscreen content.")
-                    mInterstitialAd = null
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d(TAG, "Ad showed fullscreen content.")
+                        mInterstitialAd = null
+                    }
                 }
+                mInterstitialAd?.show(this)
+            } else {
+                Log.d(TAG, "The interstitial ad wasn't ready yet.")
+                finish()
             }
-            mInterstitialAd?.show(this)
         } else {
-            Log.d(TAG, "The interstitial ad wasn't ready yet.")
             finish()
         }
     }
@@ -202,7 +208,7 @@ fun GeneralSettings(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("올해의 n번째 날 표시")
+                Text("올해의 O번째 날 표시")
                 Switch(
                     checked = showDayOfYear,
                     onCheckedChange = onShowDayOfYearChange

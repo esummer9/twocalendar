@@ -7,11 +7,14 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import androidx.core.database.sqlite.transaction
+import com.ediapp.twocalendar.ui.main.Schedule
+import com.google.gson.Gson
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.random.Random
 
 data class Saying(val saying: String, val author: String)
+data class Anniversary(val id: Int, val date: LocalDate, val schedule: Schedule)
 
 data class DayRecord(
     val id: Int,
@@ -31,6 +34,30 @@ data class DayRecord(
     val status: String?
 )
 
+data class BirthdayRecord(
+    val category: String,
+    val apply_dt: String?,
+    val title: String?,
+    val alias: String?,
+    val sol_lun: String?,
+    val verify: Boolean,
+    val sttus: String?
+){
+    // toString() 메서드를 오버라이드하여 필드를 "|"로 구분하는 문자열을 반환
+    override fun toString(): String {
+        return listOf(
+            category,
+            apply_dt ?: "", // null일 경우 빈 문자열로 대체
+            title ?: "",
+            alias ?: "",
+            sol_lun ?: "",
+            verify.toString(),
+            sttus ?: ""
+        ).joinToString("|") // 컬럼 구분자로 "|" 사용
+    }
+}
+
+
 class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     context,
     DATABASE_NAME,
@@ -43,11 +70,12 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     companion object {
         private const val TAG = "DatabaseHelper"
         private const val DATABASE_NAME = "ediapp.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
 
         // Table name
         const val TABLE_NAME = "tb_days"
         const val TABLE_NAME_SAYING = "tb_saying"
+        const val TABLE_NAME_ANNIVERSARY = "tb_birthday"
 
         // Column names
         const val COL_ID = "_id"
@@ -69,6 +97,33 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         // tb_saying columns
         const val COL_SAYING_SAYING = "saying"
         const val COL_SAYING_AUTHOR = "author"
+        const val COL_SOL_LUN = "sol_lun"
+        const val COL_VERIFY = "is_verify"
+
+        private val SQL_CREATE_TABLE_ANNIVERSARY = """
+            CREATE TABLE $TABLE_NAME_ANNIVERSARY (
+                $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_SOURCE VARCHAR(50) NOT NULL,
+                $COL_CATEGORY VARCHAR(50) NOT NULL,
+                $COL_TYPE VARCHAR(50) DEFAULT NULL,
+                $COL_DATA_KEY VARCHAR(50) DEFAULT NULL,
+                $COL_APPLY_DT VARCHAR(50) DEFAULT NULL,
+                $COL_TITLE VARCHAR(100),
+                $COL_ALIAS VARCHAR(100),
+                $COL_VALUE INTEGER DEFAULT 0,
+                $COL_MESSAGE VARCHAR(250),
+                $COL_DESCRIPTION TEXT,
+                $COL_REGISTERED_AT DATETIME DEFAULT CURRENT_TIMESTAMP,
+                
+                $COL_SOL_LUN VARCHAR(10),
+                $COL_VERIFY boolean DEFAULT false,
+                
+                $COL_CREATED_AT DATETIME DEFAULT CURRENT_TIMESTAMP,
+                $COL_DELETED_AT DATETIME DEFAULT NULL,
+                $COL_STATUS VARCHAR(50) DEFAULT 'active',
+                UNIQUE($COL_SOURCE, $COL_CATEGORY, $COL_DATA_KEY) ON CONFLICT REPLACE
+            )
+        """.trimIndent()
 
         // SQL for creating the database table
         private val SQL_CREATE_TABLE = """
@@ -106,6 +161,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             db.transaction {
                 execSQL(SQL_CREATE_TABLE)
                 execSQL(SQL_CREATE_TABLE_SAYING)
+                execSQL(SQL_CREATE_TABLE_ANNIVERSARY)
 
                 insertInitialData(this)
                 insertSayingData(this)
@@ -138,7 +194,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             context.assets.open("tb_saying.txt").bufferedReader().useLines { lines ->
                 db.transaction {
                     lines.forEach { line ->
-                        val parts = line.split('\t')
+                        val parts = line.split('	')
                         if (parts.size == 2) {
                             val values = ContentValues().apply {
                                 put(COL_SAYING_SAYING, parts[0])
@@ -163,6 +219,11 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
                 db.transaction {
                     execSQL(SQL_CREATE_TABLE_SAYING)
                     insertSayingData(this)
+                }
+            }
+            if (oldVersion < 3) {
+                db.transaction {
+                    execSQL(SQL_CREATE_TABLE_ANNIVERSARY)
                 }
             }
         } catch (e: Exception) {
@@ -201,15 +262,35 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         return count
     }
 
-    fun getDistinctScheduleTitlesForMonth(category: String, yearMonth: YearMonth): List<String> {
+    fun getAnniversaryCount(): Int {
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_NAME_ANNIVERSARY WHERE $COL_DELETED_AT IS NULL", null)
+        var count = 0
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0)
+        }
+        cursor.close()
+        return count
+    }
+
+    fun getDistinctScheduleTitlesForMonth(categories: List<String>, yearMonth: YearMonth): List<String> {
         val db = this.readableDatabase
         val titles = mutableListOf<String>()
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
+
+        if (categories.isEmpty()) {
+            return emptyList()
+        }
+
+        val categoryPlaceholders = categories.joinToString { "?" }
+        val selection = "$COL_CATEGORY IN ($categoryPlaceholders) AND $COL_APPLY_DT LIKE ?"
+        val selectionArgs = categories.toTypedArray() + "$monthStr%"
+
         val cursor = db.query(
             TABLE_NAME,
             arrayOf("DISTINCT $COL_TITLE"),
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
-            arrayOf(category, "$monthStr%"),
+            selection,
+            selectionArgs,
             null, null, "$COL_TITLE ASC"
         )
 
@@ -242,7 +323,19 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         db.insert(TABLE_NAME, null, values)
     }
 
-    fun updatePersonalSchedule(oldDate: LocalDate, oldTitle: String, newDate: LocalDate, newTitle: String) {
+    fun addBirthdayToSchedule(category: String, applyDt: LocalDate, title: String) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SOURCE, "birthday")
+            put(COL_CATEGORY, category)
+            put(COL_TYPE, "date")
+            put(COL_APPLY_DT, applyDt.toString())
+            put(COL_TITLE, title)
+        }
+        db.insert(TABLE_NAME, null, values)
+    }
+
+    fun updatePersonalSchedule(id: Int, newDate: LocalDate, newTitle: String) {
         val db = this.writableDatabase
         val values = ContentValues().apply {
             put(COL_APPLY_DT, newDate.toString())
@@ -251,19 +344,146 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         db.update(
             TABLE_NAME,
             values,
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
-            arrayOf("personal", oldDate.toString(), oldTitle)
+            "$COL_ID = ?",
+            arrayOf(id.toString())
         )
     }
 
-    fun deletePersonalSchedule(date: LocalDate, title: String) {
+    fun deletePersonalSchedule(id: Int) {
         val db = this.writableDatabase
         db.delete(
             TABLE_NAME,
-            "$COL_CATEGORY = ? AND $COL_APPLY_DT = ? AND $COL_TITLE = ?",
-            arrayOf("personal", date.toString(), title)
+            "$COL_ID = ?",
+            arrayOf(id.toString())
         )
     }
+
+    fun addAnniversary(source: String = "manual", name: String, shortName: String, category: String, calendarType: String, isYearAccurate: Boolean, applyDt: LocalDate) {
+        val db = this.writableDatabase
+
+        val selection = "$COL_TITLE = ? AND $COL_CATEGORY = ? AND $COL_SOL_LUN = ? AND $COL_APPLY_DT = ? and deleted_at is null "
+        val selectionArgs = arrayOf(name, category, calendarType, applyDt.toString())
+
+        Log.d(TAG, "addAnniversary: ${selectionArgs.joinToString ("")}")
+
+        val cursor = db.query(
+            TABLE_NAME_ANNIVERSARY,
+            arrayOf(COL_ID),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        )
+
+        if (cursor.moveToFirst()) {
+            // Record exists, update it.
+            val values = ContentValues().apply {
+                put(COL_SOURCE, source)
+                put(COL_ALIAS, shortName)
+                put(COL_VERIFY, isYearAccurate)
+            }
+            db.update(
+                TABLE_NAME_ANNIVERSARY,
+                values,
+                selection,
+                selectionArgs
+            )
+            Log.d(TAG, "Updated anniversary for: $name")
+        } else {
+            // Record does not exist, insert a new one.
+            val randVal = Random.nextInt()
+            val values = ContentValues().apply {
+                put(COL_SOURCE, source)
+                put(COL_TYPE, "date")
+                put(COL_DATA_KEY, "${category}-${applyDt}-${randVal}")
+                put(COL_TITLE, name)
+                put(COL_ALIAS, shortName)
+                put(COL_CATEGORY, category)
+                put(COL_SOL_LUN, calendarType)
+                put(COL_VERIFY, isYearAccurate)
+                put(COL_APPLY_DT, applyDt.toString())
+            }
+            db.insert(TABLE_NAME_ANNIVERSARY, null, values)
+            Log.d(TAG, "Inserted new anniversary for: $name")
+        }
+        cursor.close()
+    }
+    
+    fun deleteAnniversary(id: Int) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_DELETED_AT, LocalDate.now().toString())
+            put(COL_STATUS, "deleted")
+        }
+        val whereClause = "$COL_ID = ?"
+        val whereArgs = arrayOf(id.toString())
+        db.update(TABLE_NAME_ANNIVERSARY, values, whereClause, whereArgs)
+    }
+
+    fun getAllAnniversaries(): List<Anniversary> {
+        val db = this.readableDatabase
+        val anniversaries = mutableListOf<Anniversary>()
+        val cursor = db.query(
+            TABLE_NAME_ANNIVERSARY,
+            arrayOf(COL_ID, COL_APPLY_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN),
+            "$COL_DELETED_AT IS NULL", null, null, null, "$COL_APPLY_DT ASC"
+        )
+
+        val idColumnIndex = cursor.getColumnIndexOrThrow(COL_ID)
+        val dateColumnIndex = cursor.getColumnIndexOrThrow(COL_APPLY_DT)
+        val titleColumnIndex = cursor.getColumnIndexOrThrow(COL_TITLE)
+        val aliasColumnIndex = cursor.getColumnIndexOrThrow(COL_ALIAS)
+        val categoryColumnIndex = cursor.getColumnIndexOrThrow(COL_CATEGORY)
+        val solLunColumnIndex = cursor.getColumnIndexOrThrow(COL_SOL_LUN)
+
+
+        while (cursor.moveToNext()) {
+            val id = cursor.getInt(idColumnIndex)
+            val dateStr = cursor.getString(dateColumnIndex)
+            val title = cursor.getString(titleColumnIndex)
+            val alias = cursor.getString(aliasColumnIndex)
+            val category = cursor.getString(categoryColumnIndex)
+            val solLun = cursor.getString(solLunColumnIndex)
+            if (dateStr != null && title != null) {
+                try {
+                    val date = LocalDate.parse(dateStr)
+                    anniversaries.add(Anniversary(id, date, Schedule(id, category, title, solLun)))
+                } catch (e: java.time.format.DateTimeParseException) {
+                    Log.e(TAG, "Error parsing anniversary date: $dateStr", e)
+                }
+            }
+        }
+        cursor.close()
+        return anniversaries
+    }
+
+    fun getAllBirthdaysForQrCode(): List<String> {
+        val db = this.readableDatabase
+        val birthdays = mutableListOf<String>()
+        val cursor = db.query(
+            TABLE_NAME_ANNIVERSARY,
+            arrayOf(COL_CATEGORY, COL_APPLY_DT, COL_TITLE, COL_ALIAS, COL_SOL_LUN, COL_REGISTERED_AT, COL_VERIFY, COL_STATUS),
+            "$COL_DELETED_AT IS NULL", null, null, null, null
+        )
+
+        while (cursor.moveToNext()) {
+            val category = cursor.getString(cursor.getColumnIndexOrThrow(COL_CATEGORY))
+            val applyDt = cursor.getString(cursor.getColumnIndexOrThrow(COL_APPLY_DT))
+            val title = cursor.getString(cursor.getColumnIndexOrThrow(COL_TITLE))
+            val alias = cursor.getString(cursor.getColumnIndexOrThrow(COL_ALIAS))
+            val solLun = cursor.getString(cursor.getColumnIndexOrThrow(COL_SOL_LUN))
+            val registeredAt = cursor.getString(cursor.getColumnIndexOrThrow(COL_REGISTERED_AT))
+            val verify = cursor.getInt(cursor.getColumnIndexOrThrow(COL_VERIFY)) > 0
+            val status = cursor.getString(cursor.getColumnIndexOrThrow(COL_STATUS))
+
+            birthdays.add(BirthdayRecord(category, applyDt, title, alias, solLun, verify, status).toString())
+        }
+        cursor.close()
+
+        return birthdays
+    }
+
 
     fun addDay(source: String, category: String, type: String, dataKey: String, title: String) {
         val db = this.writableDatabase
@@ -300,39 +520,40 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val monthStr = String.format("%04d-%02d", yearMonth.year, yearMonth.monthValue)
 
         categorys.forEach { category ->
-
-            val SQL = "SELECT $COL_APPLY_DT, $COL_TITLE FROM $TABLE_NAME WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
+            val tableName = if (category == "anniversary") TABLE_NAME_ANNIVERSARY else TABLE_NAME
+            val SQL = "SELECT $COL_ID, $COL_APPLY_DT, $COL_TITLE FROM $tableName WHERE $COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?"
 
             Log.d(TAG, "SQL: $SQL, catetory : $category, monthStr : $monthStr% ")
 
             val cursor = db.query(
-                TABLE_NAME,
-                arrayOf(COL_APPLY_DT, COL_TITLE),
+                tableName,
+                arrayOf(COL_ID, COL_APPLY_DT, COL_TITLE),
                 "$COL_CATEGORY = ? AND $COL_APPLY_DT LIKE ?",
                 arrayOf(category, "$monthStr%"),
                 null, null, "$COL_APPLY_DT ASC"
             )
 
+            val idColumnIndex = cursor.getColumnIndex(COL_ID)
             val dateColumnIndex = cursor.getColumnIndex(COL_APPLY_DT)
             val titleColumnIndex = cursor.getColumnIndex(COL_TITLE)
 
-            if (dateColumnIndex == -1 || titleColumnIndex == -1) {
+            if (idColumnIndex == -1 || dateColumnIndex == -1 || titleColumnIndex == -1) {
                 Log.e(TAG, "One or more columns not found in the cursor.")
                 cursor.close()
                 return emptyMap()
             }
 
             while (cursor.moveToNext()) {
+                val id = cursor.getInt(idColumnIndex)
                 val dateStr = cursor.getString(dateColumnIndex)
                 val title = cursor.getString(titleColumnIndex)
                 if (dateStr != null && title != null) {
                     try {
                         val date = LocalDate.parse(dateStr)
-//                        holidays[date] = title
                         if (holidays[date] == null)
-                            holidays[date] = "${category}|${title}"
+                            holidays[date] = "${id}|${category}|${title}"
                         else
-                            holidays[date] += "${Constants.my_sep}${category}|${title}"
+                            holidays[date] += "${Constants.my_sep}${id}|${category}|${title}"
                     } catch (e: java.time.format.DateTimeParseException) {
                         Log.e(TAG, "Error parsing date: $dateStr", e)
                     }

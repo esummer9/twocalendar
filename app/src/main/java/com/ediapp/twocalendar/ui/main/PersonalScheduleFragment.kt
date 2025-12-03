@@ -18,11 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward // Use AutoMirrored version
-// Removed: import androidx-compose-material-icons.filled.Add
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,10 +31,12 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -77,7 +79,7 @@ import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-data class Schedule(val category: String, val title: String)
+data class Schedule(val id: Int, val category: String, val title: String, val calendarType: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,7 +172,7 @@ fun AddScheduleDialog(
 fun EditScheduleDialog(
     schedule: Pair<LocalDate, Schedule>,
     onDismiss: () -> Unit,
-    onConfirm: (LocalDate, String, LocalDate, String) -> Unit
+    onConfirm: (Int, LocalDate, String) -> Unit
 ) {
     var newTitle by remember { mutableStateOf(schedule.second.title) }
     var newDate by remember { mutableStateOf(schedule.first) }
@@ -236,7 +238,7 @@ fun EditScheduleDialog(
             Button(
                 onClick = {
                     if (newTitle.isNotBlank()) {
-                        onConfirm(schedule.first, schedule.second.title, newDate, newTitle)
+                        onConfirm(schedule.second.id, newDate, newTitle)
                     }
                 }
             ) {
@@ -373,8 +375,8 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
     }
 
     val schedules by produceState(initialValue = emptyList<Pair<LocalDate, Schedule>>(), key1 = baseMonth, key2 = refreshTrigger, key3 = scheduleUpdateTrigger) { // Add scheduleUpdateTrigger as a key
-        val firstMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("personal"))
-        val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("personal"))
+        val firstMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth, listOf("personal", "생일", "기념일"))
+        val secondMonthSchedulesRaw = dbHelper.getDaysForCategoryMonth(baseMonth.plusMonths(1), listOf("personal", "생일", "기념일"))
 
         val allSchedulesRaw = (firstMonthSchedulesRaw.keys + secondMonthSchedulesRaw.keys).associateWith {
             (firstMonthSchedulesRaw[it].orEmpty() + Constants.my_sep + secondMonthSchedulesRaw[it].orEmpty()).trim()
@@ -384,13 +386,17 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
             .flatMap { (date, scheduleString) ->
                 scheduleString.split(Constants.my_sep).mapNotNull { line ->
                     if (line.isNotBlank()) {
-                        val parts = line.split('|', limit = 2)
-                        if (parts.size == 2) {
-                            date to Schedule(category = parts[0], title = parts[1])
+                        val parts = line.split('|', limit = 3) // limit 3 to get id, category, title
+                        if (parts.size == 3) {
+                            val id = parts[0].toInt()
+                            val category = parts[1]
+                            val title = parts[2]
+                            date to Schedule(id = id, category = category, title = title)
                         } else {
                             return@mapNotNull null
                         }
-                    } else {
+                    }
+                    else {
                         return@mapNotNull null
                     }
                 }
@@ -398,23 +404,23 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
             .sortedBy { it.first }
     }
 
-    var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, String>?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showDuplicateDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showQrCodeDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-    var expandedItem by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
+    var expandedItemIndex by remember { mutableStateOf<Int?>(null) }
 
 
     if (showDeleteDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text("일정 삭제") },
-            text = { Text("'${showDeleteDialog!!.second}' 일정을 삭제하시겠습니까?") },
+            text = { Text("'${showDeleteDialog!!.second.title}' 일정을 삭제하시겠습니까?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        dbHelper.deletePersonalSchedule(showDeleteDialog!!.first, showDeleteDialog!!.second)
+                        dbHelper.deletePersonalSchedule(showDeleteDialog!!.second.id)
                         refreshTrigger++
                         showDeleteDialog = null
                     }
@@ -446,8 +452,8 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
         EditScheduleDialog(
             schedule = showEditDialog!!,
             onDismiss = { showEditDialog = null },
-            onConfirm = { oldDate, oldTitle, newDate, newTitle ->
-                dbHelper.updatePersonalSchedule(oldDate, oldTitle, newDate, newTitle)
+            onConfirm = { id, newDate, newTitle ->
+                dbHelper.updatePersonalSchedule(id, newDate, newTitle)
                 refreshTrigger++
                 showEditDialog = null
             }
@@ -470,158 +476,170 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
         QrCodeDialog(schedule = showQrCodeDialog!!, onDismiss = { showQrCodeDialog = null })
     }
 
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val nextMonth = baseMonth.plusMonths(1)
-
-            val monthStr = "${baseMonth.year}년 ${baseMonth.monthValue.toString().padStart(2, '0')}월 ~ ${nextMonth.monthValue.toString().padStart(2, '0')}월"
-            Text(
-                text = monthStr,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전달")
-                }
-                Button(
-                    onClick = { baseMonth = YearMonth.now() },
-                    modifier = Modifier.size(50.dp),
-                    contentPadding = PaddingValues(2.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.rectangle),
-                            contentDescription = "이번달 배경",
-                            modifier = Modifier.size(44.dp),
-                            tint = Color.Unspecified
-                        )
-                        Text(
-                            text = LocalDate.now().monthValue.toString().padStart(2, '0'),
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "다음달") // Use AutoMirrored version
-                }
+    Scaffold(
+        modifier = modifier,
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Filled.Add, contentDescription = "일정 추가")
             }
         }
-        if (schedules.isEmpty()) {
-            Text(
-                text = "개인일정이 없습니다.",
-                modifier = Modifier.padding(16.dp)
-            )
-        } else {
-            val today = LocalDate.now()
-            LazyColumn (modifier = Modifier.fillMaxHeight()){
-                items(schedules) { (date, schedule) ->
-                    Box {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = { /* No action on simple click */ },
-                                    onLongClick = { expandedItem = date to schedule }
-                                )
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // 1번째 컬럼: D-day 값
-                            val daysDiff = ChronoUnit.DAYS.between(date, today)
-                            val diffText = when {
-                                daysDiff == 0L -> "오늘"
-                                daysDiff > 0L -> "D+$daysDiff"
-                                else -> "D$daysDiff"
-                            }
-                            val diffColor = when {
-                                daysDiff < 0L -> Color.Gray
-                                daysDiff == 0L -> Color.Red
-                                daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
-                                else -> Color.Unspecified
-                            }
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val nextMonth = baseMonth.plusMonths(1)
 
+                val monthStr = "${baseMonth.year}년 ${baseMonth.monthValue.toString().padStart(2, '0')}월 ~ ${nextMonth.monthValue.toString().padStart(2, '0')}월"
+                Text(
+                    text = monthStr,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { baseMonth = baseMonth.minusMonths(1) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "이전달")
+                    }
+                    Button(
+                        onClick = { baseMonth = YearMonth.now() },
+                        modifier = Modifier.size(50.dp),
+                        contentPadding = PaddingValues(2.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.rectangle),
+                                contentDescription = "이번달 배경",
+                                modifier = Modifier.size(44.dp),
+                                tint = Color.Unspecified
+                            )
                             Text(
-                                text = diffText,
-                                color = diffColor,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(0.25f)
-                            )
-
-                            // 2번째 컬럼: 날짜/요일 및 제목
-                            Column(
-                                modifier = Modifier
-                                    .weight(0.75f)
-                                    .padding(horizontal = 8.dp)
-                            ) {
-                                val dayOfWeek = date.dayOfWeek
-                                val dayOfWeekText = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
-                                val dayOfWeekColor = when (dayOfWeek) {
-                                    DayOfWeek.SATURDAY -> Color.Blue
-                                    DayOfWeek.SUNDAY -> Color.Red
-                                    else -> Color.Unspecified
-                                }
-                                Text(
-                                    text = buildAnnotatedString {
-                                        append(date.toString())
-                                        append(" (")
-                                        withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
-                                            append(dayOfWeekText)
-                                        }
-                                        append(")")
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Text(
-                                    text = schedule.title,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-
-                            // 3번째 컬럼: 공유 버튼
-                            IconButton(onClick = { showQrCodeDialog = date to schedule }) {
-                                Icon(painter = painterResource(id = R.drawable.qr_code), contentDescription = "QR Code")
-                            }
-                        }
-
-                        DropdownMenu(
-                            expanded = expandedItem == date to schedule,
-                            onDismissRequest = { expandedItem = null }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("수정") },
-                                onClick = {
-                                    showEditDialog = date to schedule
-                                    expandedItem = null
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("복제") },
-                                onClick = {
-                                    showDuplicateDialog = date to schedule
-                                    expandedItem = null
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("삭제") },
-                                onClick = {
-                                    showDeleteDialog = date to schedule.title
-                                    expandedItem = null
-                                }
+                                text = LocalDate.now().monthValue.toString().padStart(2, '0'),
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    IconButton(onClick = { baseMonth = baseMonth.plusMonths(1) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "다음달") // Use AutoMirrored version
+                    }
+                }
+            }
+            if (schedules.isEmpty()) {
+                Text(
+                    text = "개인일정이 없습니다.",
+                    modifier = Modifier.padding(16.dp)
+                )
+            } else {
+                val today = LocalDate.now()
+                LazyColumn(modifier = Modifier.fillMaxHeight()) {
+                    itemsIndexed(schedules) { index, (date, schedule) ->
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { /* No action on simple click */ },
+                                        onLongClick = { expandedItemIndex = index }
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 1번째 컬럼: D-day 값
+                                val daysDiff = ChronoUnit.DAYS.between(date, today)
+                                val diffText = when {
+                                    daysDiff == 0L -> "오늘"
+                                    daysDiff > 0L -> "D+$daysDiff"
+                                    else -> "D$daysDiff"
+                                }
+                                val diffColor = when {
+                                    daysDiff < 0L -> Color.Gray
+                                    daysDiff == 0L -> Color.Red
+                                    daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
+                                    else -> Color.Unspecified
+                                }
+
+                                Text(
+                                    text = diffText,
+                                    color = diffColor,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(0.25f)
+                                )
+
+                                // 2번째 컬럼: 날짜/요일 및 제목
+                                Column(
+                                    modifier = Modifier
+                                        .weight(0.75f)
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    val dayOfWeek = date.dayOfWeek
+                                    val dayOfWeekText = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+                                    val dayOfWeekColor = when (dayOfWeek) {
+                                        DayOfWeek.SATURDAY -> Color.Blue
+                                        DayOfWeek.SUNDAY -> Color.Red
+                                        else -> Color.Unspecified
+                                    }
+                                    Text(
+                                        text = buildAnnotatedString {
+                                            append(date.toString())
+                                            withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
+                                                append("($dayOfWeekText)")
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = schedule.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+
+                                // 3번째 컬럼: 공유 버튼
+                                IconButton(onClick = { showQrCodeDialog = date to schedule }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.qr_share),
+                                        modifier = Modifier.size(28.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        contentDescription = "QR Code"
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = expandedItemIndex == index,
+                                onDismissRequest = { expandedItemIndex = null }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("수정") },
+                                    onClick = {
+                                        showEditDialog = date to schedule
+                                        expandedItemIndex = null
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("복제") },
+                                    onClick = {
+                                        showDuplicateDialog = date to schedule
+                                        expandedItemIndex = null
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("삭제") },
+                                    onClick = {
+                                        showDeleteDialog = date to schedule
+                                        expandedItemIndex = null
+                                    }
+                                )
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
                 }
             }
         }

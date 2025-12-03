@@ -18,7 +18,7 @@
         android:theme="@style/Theme.Twocalendar">
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-9901915016619662~5558803225"/>
+            android:value="ca-app-pub-9901915016619662~4311641487"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -29,9 +29,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".SettingsActivity" android:label="설정" />
         <activity android:name=".BackupActivity" android:label="백업하기" />
+        <activity android:name=".SettingsActivity" android:label="설정" />
         <activity android:name=".GuideActivity" android:label="가이드" />
+        <activity android:name=".AnniversaryActivity" android:label="기념일" />
+        <activity android:name=".QRCodeActivity" android:label="QR Code 읽기" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
