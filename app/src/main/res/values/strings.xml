@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">1+1 달</string>
+    <string name="app_name">1+1달력</string>
     <string name="birthday">생일</string>
     <string name="anniversary">기념일</string>
     <string name="back_button_description">뒤로 가기</string>
