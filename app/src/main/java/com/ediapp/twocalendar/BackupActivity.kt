@@ -216,7 +216,7 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
                             val storagePath = "backups/${randomCode.replace(" ", "")}/${backupCodeInput}/tb_days.json"
                             val fileUri = Uri.fromFile(tempFile)
 
-                            if(false) {
+                            if(true) {
                                 val uploadTask = Firebase.storage.reference.child(storagePath).putFile(fileUri)
 
                                 uploadTask.addOnSuccessListener { taskSnapshot ->
