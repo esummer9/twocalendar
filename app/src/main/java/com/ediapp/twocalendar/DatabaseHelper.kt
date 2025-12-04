@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 
 data class Saying(val saying: String, val author: String)
@@ -195,7 +196,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             context.assets.open("tb_saying.txt").bufferedReader().useLines { lines ->
                 db.transaction {
                     lines.forEach { line ->
-                        val parts = line.split('	')
+                        val parts = line.split('\t')
                         if (parts.size == 2) {
                             val values = ContentValues().apply {
                                 put(COL_SAYING_SAYING, parts[0])
@@ -272,6 +273,52 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         }
         cursor.close()
         return count
+    }
+
+    fun getUpcomingHolidaysAndAnniversaries(): List<Pair<LocalDate, String>> {
+        val db = this.readableDatabase
+        val results = mutableListOf<Pair<LocalDate, String>>()
+        val today = LocalDate.now()
+        val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+        var dates = mutableListOf<String>()
+
+        arrayOf("holiday","생일","기념일").forEach { cat ->
+            val cursor = db.query(
+                TABLE_NAME,
+                arrayOf(COL_APPLY_DT, COL_CATEGORY),
+                "$COL_CATEGORY = ? AND $COL_APPLY_DT > ?",
+                arrayOf(cat, todayStr),
+                null, null, "$COL_APPLY_DT ASC", "1")
+            cursor.use {
+                while (it.moveToNext()) {
+                    val dateStr = it.getString(it.getColumnIndexOrThrow(COL_APPLY_DT))
+                    val catStr = it.getString(it.getColumnIndexOrThrow(COL_CATEGORY))
+
+                    dates.add("$catStr|$dateStr")
+                }
+            }
+        }
+
+        dates.forEach { date ->
+            val (catVal, dateVal) = date.split("|")
+            val holidayCursor = db.query(
+                TABLE_NAME,
+                arrayOf(COL_APPLY_DT, COL_TITLE),
+                "$COL_CATEGORY = ? AND $COL_APPLY_DT = ?",
+                arrayOf(catVal, dateVal),
+                null, null, "$COL_APPLY_DT ASC",
+            )
+            holidayCursor.use {
+                while (it.moveToNext()) {
+                    val dateStr = it.getString(it.getColumnIndexOrThrow(COL_APPLY_DT))
+                    val title = it.getString(it.getColumnIndexOrThrow(COL_TITLE))
+                    results.add(Pair(LocalDate.parse(dateStr), title))
+                }
+            }
+        }
+        Log.d(TAG, "getUpcomingHolidaysAndAnniversaries: $results")
+        return results.sortedBy { it.first }
     }
 
     fun getDistinctScheduleTitlesForMonth(categories: List<String>, yearMonth: YearMonth): List<String> {
