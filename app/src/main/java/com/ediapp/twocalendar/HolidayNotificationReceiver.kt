@@ -2,15 +2,14 @@ package com.ediapp.twocalendar
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import java.util.Calendar
 
 class HolidayNotificationReceiver : BroadcastReceiver() {
 
@@ -21,7 +20,7 @@ class HolidayNotificationReceiver : BroadcastReceiver() {
         context?.let {
             createNotificationChannel(it)
 
-            val nextHoliday = findNextHoliday()
+            val nextHoliday = findNextHoliday(it)
             nextHoliday?.let {(date, name) ->
                 val today = LocalDate.now()
                 val daysUntil = ChronoUnit.DAYS.between(today, date)
@@ -34,11 +33,18 @@ class HolidayNotificationReceiver : BroadcastReceiver() {
 
                 if (notificationText.isNotEmpty()) {
                     val notificationManager = it.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+                    val mainActivityIntent = Intent(it, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    val pendingIntent = PendingIntent.getActivity(it, 0, mainActivityIntent, PendingIntent.FLAG_IMMUTABLE)
+
                     val builder = NotificationCompat.Builder(it, CHANNEL_ID)
                         .setSmallIcon(R.drawable.calendar_512) // Use an appropriate icon
                         .setContentTitle("다가오는 공휴일 알림")
                         .setContentText(notificationText)
                         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                        .setContentIntent(pendingIntent)
                         .setAutoCancel(true)
 
                     notificationManager.notify(NOTIFICATION_ID, builder.build())
@@ -60,33 +66,10 @@ class HolidayNotificationReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun findNextHoliday(): Pair<LocalDate, String>? {
-        val holidays = listOf(
-            Pair(LocalDate.of(2025, 1, 1), "신정"),
-            Pair(LocalDate.of(2025, 1, 28), "설날"),
-            Pair(LocalDate.of(2025, 1, 29), "설날"),
-            Pair(LocalDate.of(2025, 1, 30), "설날"),
-            Pair(LocalDate.of(2025, 3, 1), "삼일절"),
-            Pair(LocalDate.of(2025, 5, 5), "어린이날"),
-            Pair(LocalDate.of(2025, 5, 6), "대체 공휴일"), // 어린이날 대체공휴일
-            Pair(LocalDate.of(2025, 5, 26), "부처님 오신 날"),
-            Pair(LocalDate.of(2025, 6, 6), "현충일"),
-            Pair(LocalDate.of(2025, 8, 15), "광복절"),
-            Pair(LocalDate.of(2025, 10, 3), "개천절"),
-            Pair(LocalDate.of(2025, 10, 6), "추석"),
-            Pair(LocalDate.of(2025, 10, 7), "추석"),
-            Pair(LocalDate.of(2025, 10, 8), "추석"),
-            Pair(LocalDate.of(2025, 10, 9), "한글날"),
-            Pair(LocalDate.of(2025, 12, 25), "성탄절")
-        )
-
+    private fun findNextHoliday(context: Context): Pair<LocalDate, String>? {
+        val dbHelper = DatabaseHelper(context)
+        val holidays = dbHelper.getUpcomingHolidaysAndAnniversaries()
         val today = LocalDate.now()
-        return holidays
-            .filter { it.first >= today || it.first.year == today.year + 1 } // Include holidays from next year for proper wrap-around
-            .minByOrNull {
-                // If the holiday is in the past for the current year, consider it for the next year
-                val holidayDate = if (it.first.isBefore(today)) it.first.plusYears(1) else it.first
-                ChronoUnit.DAYS.between(today, holidayDate)
-            }
+        return holidays.firstOrNull { !it.first.isBefore(today) }
     }
 }
