@@ -149,6 +149,7 @@ fun BackupScreenContent(randomCode: String, dbHelper: DatabaseHelper, onBackPres
 @Composable
 fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: DatabaseHelper) {
     var backupCodeInput by remember { mutableStateOf("") }
+    var isBackingUp by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -190,43 +191,59 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                Button(onClick = {
-                    if (backupCodeInput.isBlank()) {
-                        Toast.makeText(context, "백업코드를 입력해주세요.", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
+                Button(
+                    onClick = {
+                        if (backupCodeInput.isBlank()) {
+                            Toast.makeText(context, "백업코드를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
 
-                    // Save backupCode to SharedPreferences
-                    val sharedPreferences = context.getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
-                    sharedPreferences.edit().putString("backup_code", backupCodeInput).apply()
+                        val sharedPreferences = context.getSharedPreferences("backup_prefs", Context.MODE_PRIVATE)
+                        val editor = sharedPreferences.edit()
 
-                    Toast.makeText(context, "백업을 시작합니다...", Toast.LENGTH_LONG).show()
+                        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        val lastBackupDate = sharedPreferences.getString("last_backup_date", null)
+                        var backupCount = sharedPreferences.getInt("backup_count", 0)
 
-                    coroutineScope.launch(Dispatchers.IO) {
-                        try {
-                            val days = dbHelper.getAllPersonalSchedules()
-                            val gson = Gson()
-                            val jsonString = gson.toJson(days)
+                        if (today != lastBackupDate) {
+                            backupCount = 0
+                        }
 
-                            val tempFile = File(context.cacheDir, "tb_days.json")
-                            FileWriter(tempFile).use { it.write(jsonString) }
+                        if (backupCount >= 3) {
+                            Toast.makeText(context, "하루 백업 횟수(3회)를 초과했습니다.", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
 
-                            Log.d("BackupActivity", "jsonString: $jsonString")
+                        backupCount++
+                        editor.putString("last_backup_date", today)
+                        editor.putInt("backup_count", backupCount)
+                        editor.apply()
 
-                            val storagePath = "twocalendar/${randomCode.replace(" ", "")}/${backupCodeInput}/tb_days.json"
-                            val fileUri = Uri.fromFile(tempFile)
+                        sharedPreferences.edit().putString("backup_code", backupCodeInput).apply()
 
-                            if(true) {
+                        isBackingUp = true
+                        Toast.makeText(context, "백업을 시작합니다...", Toast.LENGTH_LONG).show()
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                val days = dbHelper.getAllPersonalSchedules()
+                                val gson = Gson()
+                                val jsonString = gson.toJson(days)
+
+                                val tempFile = File(context.cacheDir, "tb_days.json")
+                                FileWriter(tempFile).use { it.write(jsonString) }
+
+                                val storagePath = "twocalendar/${randomCode.replace(" ", "")}/${backupCodeInput}/tb_days.json"
+                                val fileUri = Uri.fromFile(tempFile)
+
                                 val uploadTask = Firebase.storage.reference.child(storagePath).putFile(fileUri)
 
                                 uploadTask.addOnSuccessListener { taskSnapshot ->
-                                    CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
+                                    coroutineScope.launch {
                                         Toast.makeText(context, "백업 성공!", Toast.LENGTH_SHORT).show()
-                                        tempFile.delete() // Clean up temporary file
+                                        isBackingUp = false
                                     }
-                                    // 업로드 성공하면
-                                    // Google Cloud Firestore 에
-                                    // 로그기록
+                                    tempFile.delete()
                                     val db = Firebase.firestore
                                     val calendar = Calendar.getInstance()
                                     calendar.add(Calendar.DAY_OF_YEAR, 5)
@@ -237,7 +254,7 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
                                         "random_code" to backupCodeInput.trim()
                                     )
 
-                                    db.collection("twocalendar").document(randomCode.replace(" ","")  )
+                                    db.collection("twocalendar").document(randomCode.replace(" ", ""))
                                         .set(backupLog)
                                         .addOnSuccessListener {
                                             Log.d("BackupActivity", "Firestore log successfully written!")
@@ -246,26 +263,27 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
                                             Log.w("BackupActivity", "Error writing Firestore log", e)
                                         }
 
-
                                     Log.d("BackupActivity", "Backup successful: ${taskSnapshot.metadata?.path}")
                                 }.addOnFailureListener { exception ->
-                                    CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
+                                    coroutineScope.launch {
                                         Toast.makeText(context, "백업 실패: ${exception.message}", Toast.LENGTH_LONG).show()
-                                        tempFile.delete() // Clean up temporary file
+                                        isBackingUp = false
                                     }
+                                    tempFile.delete()
                                     Log.e("BackupActivity", "Backup failed", exception)
                                 }
+                            } catch (e: Exception) {
+                                coroutineScope.launch {
+                                    Toast.makeText(context, "백업 중 오류 발생: ${e.message}", Toast.LENGTH_LONG).show()
+                                    isBackingUp = false
+                                }
+                                Log.e("BackupActivity", "Error during backup process", e)
                             }
-
-                        } catch (e: Exception) {
-                            CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
-                                Toast.makeText(context, "백업 중 오류 발생: ${e.message}", Toast.LENGTH_LONG).show()
-                            }
-                            Log.e("BackupActivity", "Error during backup process", e)
                         }
-                    }
-                }) {
-                    Text("백업하기")
+                    },
+                    enabled = !isBackingUp
+                ) {
+                    Text(if (isBackingUp) "백업 중..." else "백업하기")
                 }
             }
 
@@ -335,10 +353,10 @@ fun RestoreSection(modifier: Modifier = Modifier, dbHelper: DatabaseHelper) {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
                             val storagePath = "twocalendar/${randomCodeInput.replace(" ", "")}/${backupCodeInput}/tb_days.json"
-                            val ONE_MEGABYTE: Long = 1024 * 1024
+                            val oneMegabyte: Long = 1024 * 1024
                             val fileRef = Firebase.storage.reference.child(storagePath)
 
-                            fileRef.getBytes(ONE_MEGABYTE).addOnSuccessListener { bytes ->
+                            fileRef.getBytes(oneMegabyte).addOnSuccessListener { bytes ->
                                 coroutineScope.launch(Dispatchers.Main) { // Use CoroutineScope for main thread Toast
                                     try {
                                         val jsonString = String(bytes)
