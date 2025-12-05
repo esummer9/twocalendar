@@ -48,6 +48,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import android.util.Log
 import android.widget.Toast
+import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
@@ -63,6 +64,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import kotlinx.coroutines.CoroutineScope
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -211,7 +213,7 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
 
                             Log.d("BackupActivity", "jsonString: $jsonString")
 
-                            val storagePath = "backups/${randomCode.replace(" ", "")}/${backupCodeInput}/tb_days.json"
+                            val storagePath = "twocalendar/${randomCode.replace(" ", "")}/${backupCodeInput}/tb_days.json"
                             val fileUri = Uri.fromFile(tempFile)
 
                             if(true) {
@@ -222,6 +224,29 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
                                         Toast.makeText(context, "백업 성공!", Toast.LENGTH_SHORT).show()
                                         tempFile.delete() // Clean up temporary file
                                     }
+                                    // 업로드 성공하면
+                                    // Google Cloud Firestore 에
+                                    // 로그기록
+                                    val db = Firebase.firestore
+                                    val calendar = Calendar.getInstance()
+                                    calendar.add(Calendar.DAY_OF_YEAR, 5)
+                                    val expiryDate = calendar.time
+
+                                    val backupLog = hashMapOf(
+                                        "expiry_dt" to expiryDate,
+                                        "random_code" to backupCodeInput.trim()
+                                    )
+
+                                    db.collection("twocalendar").document(randomCode.replace(" ","")  )
+                                        .set(backupLog)
+                                        .addOnSuccessListener {
+                                            Log.d("BackupActivity", "Firestore log successfully written!")
+                                        }
+                                        .addOnFailureListener { e ->
+                                            Log.w("BackupActivity", "Error writing Firestore log", e)
+                                        }
+
+
                                     Log.d("BackupActivity", "Backup successful: ${taskSnapshot.metadata?.path}")
                                 }.addOnFailureListener { exception ->
                                     CoroutineScope(Dispatchers.Main).launch { // Use CoroutineScope for main thread Toast
@@ -309,7 +334,7 @@ fun RestoreSection(modifier: Modifier = Modifier, dbHelper: DatabaseHelper) {
 
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
-                            val storagePath = "backups/${randomCodeInput.replace(" ", "")}/${backupCodeInput}/tb_days.json"
+                            val storagePath = "twocalendar/${randomCodeInput.replace(" ", "")}/${backupCodeInput}/tb_days.json"
                             val ONE_MEGABYTE: Long = 1024 * 1024
                             val fileRef = Firebase.storage.reference.child(storagePath)
 
