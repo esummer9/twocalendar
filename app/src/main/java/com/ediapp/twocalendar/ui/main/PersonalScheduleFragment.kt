@@ -597,10 +597,10 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                             }
                         )
                         ExtendedFloatingActionButton(
-                            text = { Text("QR공유") },
-                            icon = { Icon(painter = painterResource(id = R.drawable.qr_share)
-
-                                , "QR공유") }
+                            text = { Text("공유") },
+                            icon = { Icon(painter = painterResource(id = R.drawable.qr_share),
+                                contentDescription = "QR공유",
+                                modifier = Modifier.size(20.dp)) }
                             ,
                             onClick = {
                                 showScheduleSelectionDialog = true
