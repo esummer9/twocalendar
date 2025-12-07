@@ -1,12 +1,10 @@
 package com.ediapp.twocalendar.ui.main
 
 import android.content.Intent
-import android.graphics.Bitmap
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,8 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -54,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
@@ -74,9 +69,7 @@ import com.ediapp.twocalendar.Constants
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.LunarApiService
 import com.ediapp.twocalendar.R
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
+import com.ediapp.twocalendar.ui.common.QrCodeImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -457,23 +450,6 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
 @Composable
 fun BirthDayFragmentPreview() {
     BirthDayFragment(scheduleUpdateTrigger = 0)
-}
-
-@Composable
-fun QrCodeImage(data: String, size: Int = 512) {
-    val writer = QRCodeWriter()
-    val hints = mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")
-    val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, size, size, hints)
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
-    for (x in 0 until size) {
-        for (y in 0 until size) {
-            bitmap.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-        }
-    }
-    Image(
-        bitmap = bitmap.asImageBitmap(),
-        contentDescription = "QR Code"
-    )
 }
 
 @Composable

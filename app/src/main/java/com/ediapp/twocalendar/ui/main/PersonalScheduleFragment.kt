@@ -1,6 +1,9 @@
 package com.ediapp.twocalendar.ui.main
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.provider.CalendarContract
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -17,20 +20,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward // Use AutoMirrored version
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +57,7 @@ import androidx.compose.runtime.mutableIntStateOf // Import mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,10 +76,12 @@ import androidx.compose.ui.window.Dialog
 import com.ediapp.twocalendar.Constants
 import com.ediapp.twocalendar.DatabaseHelper
 import com.ediapp.twocalendar.R
+import com.ediapp.twocalendar.ui.common.QrCodeImage
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -334,30 +346,93 @@ fun DuplicateScheduleDialog(
 }
 
 @Composable
-fun QrCodeDialog(schedule: Pair<LocalDate, Schedule>, onDismiss: () -> Unit) {
-    val qrCodeBitmap = remember {
-        val text = "${schedule.first}|${schedule.second.title}"
-        val size = 512
-        val hints = mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")
-        val bitMatrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, hints)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+fun PersonalScheduleQrCodeDialog(
+    json: String?,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("개인일정 공유") },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (!json.isNullOrEmpty()) {
+                    QrCodeImage(data = json, size = 800) // Use a smaller size for the dialog
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("다른 핸드폰에서 QR 코드를 스캔하여 일정 정보를 가져올 수 있습니다.")
+                } else {
+                    Text("일정 정보가 없습니다.")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("닫기")
             }
         }
-        bitmap
-    }
+    )
+}
 
-    Dialog(onDismissRequest = onDismiss) {
-        Box(modifier = Modifier.size(300.dp)) {
-            Image(
-                bitmap = qrCodeBitmap.asImageBitmap(),
-                contentDescription = "QR Code",
-                modifier = Modifier.fillMaxSize()
-            )
+@Composable
+fun PersonalScheduleSelectionDialog(
+    schedules: List<Pair<LocalDate, Schedule>>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<Pair<LocalDate, Schedule>>) -> Unit
+) {
+    val selectedSchedules = remember { mutableStateOf<List<Pair<LocalDate, Schedule>>>(emptyList()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("공유할 일정 선택") },
+        text = {
+            LazyColumn {
+                items(schedules) { schedulePair ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val currentSelection = selectedSchedules.value.toMutableList()
+                                if (currentSelection.contains(schedulePair)) {
+                                    currentSelection.remove(schedulePair)
+                                } else {
+                                    currentSelection.add(schedulePair)
+                                }
+                                selectedSchedules.value = currentSelection
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = selectedSchedules.value.contains(schedulePair),
+                            onCheckedChange = { isChecked ->
+                                val currentSelection = selectedSchedules.value.toMutableList()
+                                if (isChecked) {
+                                    currentSelection.add(schedulePair)
+                                } else {
+                                    currentSelection.remove(schedulePair)
+                                }
+                                selectedSchedules.value = currentSelection
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("${schedulePair.first}: ${schedulePair.second.title}")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedSchedules.value) }) {
+                Text("확인")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("취소")
+            }
         }
-    }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -367,6 +442,12 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
     val dbHelper = remember { DatabaseHelper(context) }
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
     var refreshTrigger by remember { mutableIntStateOf(0) } // Use mutableIntStateOf
+    var isFabMenuExpanded by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    var showScheduleSelectionDialog by remember { mutableStateOf(false) }
+    var showScheduleQrCodeDialog by remember { mutableStateOf(false) }
+    var scheduleQrJson by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(selectedDate) {
         selectedDate?.let { date ->
@@ -408,7 +489,6 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var showDuplicateDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
-    var showQrCodeDialog by remember { mutableStateOf<Pair<LocalDate, Schedule>?>(null) }
     var expandedItemIndex by remember { mutableStateOf<Int?>(null) }
 
 
@@ -472,15 +552,68 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
         )
     }
 
-    if (showQrCodeDialog != null) {
-        QrCodeDialog(schedule = showQrCodeDialog!!, onDismiss = { showQrCodeDialog = null })
+    if (showScheduleSelectionDialog) {
+        PersonalScheduleSelectionDialog(
+            schedules = schedules,
+            onDismiss = { showScheduleSelectionDialog = false },
+            onConfirm = { selectedSchedules ->
+                coroutineScope.launch {
+                    val result = selectedSchedules.map { schedulePair ->
+                        "${schedulePair.first}|${schedulePair.second.title}"
+                    }
+                    scheduleQrJson = result.joinToString(Constants.my_sep)
+                    showScheduleQrCodeDialog = true
+                    showScheduleSelectionDialog = false // dismiss selection dialog
+                }
+            }
+        )
+    }
+
+    if (showScheduleQrCodeDialog) {
+        PersonalScheduleQrCodeDialog(json = scheduleQrJson, onDismiss = {
+            showScheduleQrCodeDialog = false
+            scheduleQrJson = null
+        })
     }
 
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "일정 추가")
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AnimatedVisibility(visible = isFabMenuExpanded) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ExtendedFloatingActionButton(
+                            text = { Text("추가") },
+                            icon = { Icon(Icons.Filled.Add, "추가") },
+                            onClick = {
+                                showAddDialog = true
+                                isFabMenuExpanded = false
+                            }
+                        )
+                        ExtendedFloatingActionButton(
+                            text = { Text("QR공유") },
+                            icon = { Icon(painter = painterResource(id = R.drawable.qr_share)
+
+                                , "QR공유") }
+                            ,
+                            onClick = {
+                                showScheduleSelectionDialog = true
+                                isFabMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+                FloatingActionButton(
+                    onClick = { isFabMenuExpanded = !isFabMenuExpanded }
+                ) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "메뉴 열기")
+                }
             }
         }
     ) { paddingValues ->
@@ -601,12 +734,21 @@ fun PersonalScheduleFragment(modifier: Modifier = Modifier, selectedDate: LocalD
                                 }
 
                                 // 3번째 컬럼: 공유 버튼
-                                IconButton(onClick = { showQrCodeDialog = date to schedule }) {
+                                IconButton(onClick = {
+                                    val intent = Intent(Intent.ACTION_INSERT).apply {
+                                        data = CalendarContract.Events.CONTENT_URI
+                                        putExtra(CalendarContract.Events.TITLE, schedule.title)
+                                        val startTime = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                                        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTime)
+                                        putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "일정 공유"))
+                                }) {
                                     Icon(
-                                        painter = painterResource(id = R.drawable.qr_share),
-                                        modifier = Modifier.size(28.dp),
+                                        painter = painterResource(id = R.drawable.share),
+                                        modifier = Modifier.size(25.dp),
                                         tint = MaterialTheme.colorScheme.primary,
-                                        contentDescription = "QR Code"
+                                        contentDescription = "구글캘린더"
                                     )
                                 }
                             }
