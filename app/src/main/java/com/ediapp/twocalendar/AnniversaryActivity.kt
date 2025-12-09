@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,11 +54,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ediapp.twocalendar.network.LunarApi
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class AnniversaryData(
     var name: String = "",
@@ -68,6 +73,11 @@ data class AnniversaryData(
     var selectedDate: LocalDate = LocalDate.now()
 )
 
+
+suspend fun LunToSolar ( year: Int, month: Int, day: Int): LocalDate? {
+    return LunarApi.convertToSolar(year, month, day)
+}
+
 class AnniversaryActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +87,7 @@ class AnniversaryActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val dbHelper = remember { DatabaseHelper(context) }
                 var anniversaryData by remember { mutableStateOf(AnniversaryData()) }
+                val coroutineScope = rememberCoroutineScope()
 
                 Scaffold(
                     topBar = {
@@ -95,15 +106,36 @@ class AnniversaryActivity : ComponentActivity() {
                                         anniversaryData.calendarType.isBlank()) {
                                         Toast.makeText(context, "이름, 기념일 종류, 달력 종류는 필수 항목입니다.", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        dbHelper.addAnniversary(
-                                            name = anniversaryData.name,
-                                            shortName = anniversaryData.shortName,
-                                            category = anniversaryData.anniversaryType,
-                                            calendarType = anniversaryData.calendarType,
-                                            isYearAccurate = anniversaryData.isYearAccurate,
-                                            applyDt = anniversaryData.selectedDate
-                                        )
-                                        (context as? Activity)?.finish()
+
+                                        coroutineScope.launch {
+                                            val year = LocalDate.now().year
+
+                                            val applyDt: LocalDate? = if (anniversaryData.calendarType == "음력") {
+                                                LunToSolar(year,
+                                                    anniversaryData.selectedDate.monthValue,
+                                                    anniversaryData.selectedDate.dayOfMonth
+                                                )
+                                            } else {
+                                                LocalDate.of(
+                                                    year,
+                                                    anniversaryData.selectedDate.monthValue,
+                                                    anniversaryData.selectedDate.dayOfMonth
+                                                )
+                                            }
+
+                                            dbHelper.addAnniversary(
+                                                name = anniversaryData.name,
+                                                shortName = anniversaryData.shortName,
+                                                category = anniversaryData.anniversaryType,
+                                                calendarType = anniversaryData.calendarType,
+                                                isYearAccurate = anniversaryData.isYearAccurate,
+                                                originDt = anniversaryData.selectedDate,
+                                                applyDt = applyDt ?: anniversaryData.selectedDate
+                                            )
+                                            withContext(Dispatchers.Main) {
+                                                (context as? Activity)?.finish()
+                                            }
+                                        }
                                     }
                                 }) {
                                     Icon(painter = painterResource(id = R.drawable.save),
@@ -144,7 +176,7 @@ fun AnniversaryInputCard(
 
     val calendarTypes = listOf(
         stringResource(id = R.string.calendar_type_solar),
-        stringResource(id = R.string.calendar_type_lunar), 
+        stringResource(id = R.string.calendar_type_lunar),
     )
     var isCalendarTypeExpanded by remember { mutableStateOf(false) }
 

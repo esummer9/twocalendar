@@ -39,6 +39,7 @@ data class DayRecord(
 data class BirthdayRecord(
     val category: String,
     val apply_dt: String?,
+    val origin_dt: String?,
     val title: String?,
     val alias: String?,
     val sol_lun: String?,
@@ -86,6 +87,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         const val COL_TYPE = "data_type"
         const val COL_DATA_KEY = "data_key"
         const val COL_APPLY_DT = "apply_dt"
+        const val COL_ORIGIN_DT = "origin_dt"
         const val COL_TITLE = "title"
         const val COL_ALIAS = "alias"
         const val COL_VALUE = "value"
@@ -102,6 +104,9 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         const val COL_SOL_LUN = "sol_lun"
         const val COL_VERIFY = "is_verify"
 
+        /**
+         * 기념일, 생일, 기타
+         */
         private val SQL_CREATE_TABLE_ANNIVERSARY = """
             CREATE TABLE $TABLE_NAME_ANNIVERSARY (
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,6 +115,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
                 $COL_TYPE VARCHAR(50) DEFAULT NULL,
                 $COL_DATA_KEY VARCHAR(50) DEFAULT NULL,
                 $COL_APPLY_DT VARCHAR(50) DEFAULT NULL,
+                $COL_ORIGIN_DT VARCHAR(50) DEFAULT NULL,
                 $COL_TITLE VARCHAR(100),
                 $COL_ALIAS VARCHAR(100),
                 $COL_VALUE INTEGER DEFAULT 0,
@@ -128,6 +134,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         """.trimIndent()
 
         // SQL for creating the database table
+        /**
+         * 공휴일 : Holiday
+         * 개인일정 : personal
+         */
         private val SQL_CREATE_TABLE = """
             CREATE TABLE $TABLE_NAME (
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,6 +159,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             )
         """.trimIndent()
 
+        /* 명언목록 */
         private val SQL_CREATE_TABLE_SAYING = """
             CREATE TABLE $TABLE_NAME_SAYING (
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -406,11 +417,11 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         )
     }
 
-    fun addAnniversary(source: String = "manual", name: String, shortName: String, category: String, calendarType: String, isYearAccurate: Boolean, applyDt: LocalDate) {
+    fun addAnniversary(source: String = "manual", name: String, shortName: String, category: String, calendarType: String, isYearAccurate: Boolean, originDt: LocalDate, applyDt: LocalDate) {
         val db = this.writableDatabase
 
         val selection = "$COL_TITLE = ? AND $COL_CATEGORY = ? AND $COL_SOL_LUN = ? AND $COL_APPLY_DT = ? and deleted_at is null "
-        val selectionArgs = arrayOf(name, category, calendarType, applyDt.toString())
+        val selectionArgs = arrayOf(name, category, calendarType, originDt.toString())
 
         Log.d(TAG, "addAnniversary: ${selectionArgs.joinToString ("")}")
 
@@ -444,13 +455,15 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             val values = ContentValues().apply {
                 put(COL_SOURCE, source)
                 put(COL_TYPE, "date")
-                put(COL_DATA_KEY, "${category}-${applyDt}-${randVal}")
+                put(COL_DATA_KEY, "${category}-${originDt}-${randVal}")
                 put(COL_TITLE, name)
                 put(COL_ALIAS, shortName)
                 put(COL_CATEGORY, category)
                 put(COL_SOL_LUN, calendarType)
                 put(COL_VERIFY, isYearAccurate)
+//                var applyDt = LocalDate.of(LocalDate.now().year, originDt.monthValue, originDt.dayOfMonth)
                 put(COL_APPLY_DT, applyDt.toString())
+                put(COL_ORIGIN_DT, originDt.toString())
             }
             db.insert(TABLE_NAME_ANNIVERSARY, null, values)
             Log.d(TAG, "Inserted new anniversary for: $name")
@@ -505,33 +518,6 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         cursor.close()
         return anniversaries
     }
-
-    fun getAllBirthdaysForQrCode(): List<String> {
-        val db = this.readableDatabase
-        val birthdays = mutableListOf<String>()
-        val cursor = db.query(
-            TABLE_NAME_ANNIVERSARY,
-            arrayOf(COL_CATEGORY, COL_APPLY_DT, COL_TITLE, COL_ALIAS, COL_SOL_LUN, COL_REGISTERED_AT, COL_VERIFY, COL_STATUS),
-            "$COL_DELETED_AT IS NULL", null, null, null, null
-        )
-
-        while (cursor.moveToNext()) {
-            val category = cursor.getString(cursor.getColumnIndexOrThrow(COL_CATEGORY))
-            val applyDt = cursor.getString(cursor.getColumnIndexOrThrow(COL_APPLY_DT))
-            val title = cursor.getString(cursor.getColumnIndexOrThrow(COL_TITLE))
-            val alias = cursor.getString(cursor.getColumnIndexOrThrow(COL_ALIAS))
-            val solLun = cursor.getString(cursor.getColumnIndexOrThrow(COL_SOL_LUN))
-            val registeredAt = cursor.getString(cursor.getColumnIndexOrThrow(COL_REGISTERED_AT))
-            val verify = cursor.getInt(cursor.getColumnIndexOrThrow(COL_VERIFY)) > 0
-            val status = cursor.getString(cursor.getColumnIndexOrThrow(COL_STATUS))
-
-            birthdays.add(BirthdayRecord(category, applyDt, title, alias, solLun, verify, status).toString())
-        }
-        cursor.close()
-
-        return birthdays
-    }
-
 
     fun addDay(source: String, category: String, type: String, dataKey: String, title: String) {
         val db = this.writableDatabase

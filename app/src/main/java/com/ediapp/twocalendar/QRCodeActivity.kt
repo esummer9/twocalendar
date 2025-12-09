@@ -116,7 +116,8 @@ class QRCodeActivity : ComponentActivity() {
                                         category = anniversaryType,
                                         calendarType = calendarType,
                                         isYearAccurate = isYearAccurate,
-                                        applyDt = LocalDate.parse(applyDt)
+                                        applyDt = LocalDate.parse(applyDt),
+                                        originDt = LocalDate.parse(applyDt)
                                     )
                                     importedCount++
                                 } else {
