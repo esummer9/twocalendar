@@ -2,40 +2,54 @@ package com.ediapp.twocalendar.network
 
 import android.util.Log
 import com.ediapp.twocalendar.Constants
+import org.simpleframework.xml.Element
+import org.simpleframework.xml.ElementList
+import org.simpleframework.xml.Root
 import retrofit2.Retrofit
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
 
 interface LunarApiService {
-    @GET("getLunCalInfo")
+    @GET("getSpcifyLunCalInfo")
     suspend fun getLunarDate(
-        @Query("serviceKey", encoded = true) serviceKey: String,
-        @Query("solYear") fromSolYear: String,
-        @Query( "solMonth") toSolYear: String,
-        @Query("solDay") lunMonth: String,
-        @Query("lunDay") lunDay: String
+        @Query("serviceKey") serviceKey: String,
+        @Query("fromSolYear") fromSolYear: String,
+        @Query("toSolYear") toSolYear: String,
+        @Query("lunMonth") lunMonth: String,
+        @Query("lunDay") lunDay: String,
+        @Query("leapMonth") leapMonth: String = "평"
     ): retrofit2.Response<LunarResponse>
 }
 
+@Root(name = "response", strict = false)
 data class LunarResponse(
-    val body: Body
+    @field:Element(name = "body")
+    var body: LunarBody? = null
 )
 
-data class Body(
-    val items: Items
+@Root(name = "body", strict = false)
+data class LunarBody(
+    @field:Element(name = "items")
+    var items: LunarItems? = null
 )
 
-data class Items(
-    @org.simpleframework.xml.ElementList(inline = true)
-    val itemList: List<LunarItem>?
+@Root(name = "items", strict = false)
+data class LunarItems(
+    @field:ElementList(inline = true, name = "item")
+    var itemList: List<LunarItem>? = null
 )
 
+@Root(name = "item", strict = false)
 data class LunarItem(
-    val solYear: Int,
-    val solMonth: Int,
-    val solDay: Int
+    @field:Element(name = "solYear")
+    var solYear: Int = 0,
+    @field:Element(name = "solMonth")
+    var solMonth: Int = 0,
+    @field:Element(name = "solDay")
+    var solDay: Int = 0
 )
+
 
 object LunarApi {
     private val apiConfig = Constants.API_CONFIGS["LUNAR"]
@@ -69,10 +83,10 @@ object LunarApi {
                     return java.time.LocalDate.of(lunarItem.solYear, lunarItem.solMonth, lunarItem.solDay)
                 }
             } else {
-                android.util.Log.e("LunarApi", "API Call Failed: ${response?.errorBody()?.string()}")
+                android.util.Log.e("convertToSolar LunarApi", "API Call Failed: ${response?.errorBody()?.string()}")
             }
         } catch (e: Exception) {
-            android.util.Log.e("LunarApi", "API Call Failed: ${e.message}")
+            android.util.Log.e("convertToSolar LunarApi", "API Call Failed: ${e.message}")
         }
         return null
     }

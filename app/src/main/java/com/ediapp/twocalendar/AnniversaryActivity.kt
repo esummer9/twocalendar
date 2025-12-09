@@ -2,6 +2,7 @@ package com.ediapp.twocalendar
 
 import android.app.Activity
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -122,6 +123,8 @@ class AnniversaryActivity : ComponentActivity() {
                                                     anniversaryData.selectedDate.dayOfMonth
                                                 )
                                             }
+
+                                            Log.d("AnniversaryActivity", "applyDt: $applyDt")
 
                                             dbHelper.addAnniversary(
                                                 name = anniversaryData.name,
