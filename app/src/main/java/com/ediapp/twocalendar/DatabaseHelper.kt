@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 
 data class Saying(val saying: String, val author: String)
-data class Anniversary(val id: Int, val date: LocalDate, val schedule: Schedule)
+data class Anniversary(val id: Int, val date: LocalDate, val applyDt: LocalDate, val schedule: Schedule)
 
 data class DayRecord(
     val id: Int,
@@ -487,12 +487,13 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val anniversaries = mutableListOf<Anniversary>()
         val cursor = db.query(
             TABLE_NAME_ANNIVERSARY,
-            arrayOf(COL_ID, COL_APPLY_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN),
+            arrayOf(COL_ID, COL_APPLY_DT, COL_ORIGIN_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN),
             "$COL_DELETED_AT IS NULL", null, null, null, "$COL_APPLY_DT ASC"
         )
 
         val idColumnIndex = cursor.getColumnIndexOrThrow(COL_ID)
-        val dateColumnIndex = cursor.getColumnIndexOrThrow(COL_APPLY_DT)
+        val dateColumnIndex = cursor.getColumnIndexOrThrow(COL_ORIGIN_DT)
+        val applyDtColumnIndex = cursor.getColumnIndexOrThrow(COL_APPLY_DT)
         val titleColumnIndex = cursor.getColumnIndexOrThrow(COL_TITLE)
         val aliasColumnIndex = cursor.getColumnIndexOrThrow(COL_ALIAS)
         val categoryColumnIndex = cursor.getColumnIndexOrThrow(COL_CATEGORY)
@@ -502,6 +503,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         while (cursor.moveToNext()) {
             val id = cursor.getInt(idColumnIndex)
             val dateStr = cursor.getString(dateColumnIndex)
+            val applyDt = cursor.getString(applyDtColumnIndex)
             val title = cursor.getString(titleColumnIndex)
             val alias = cursor.getString(aliasColumnIndex)
             val category = cursor.getString(categoryColumnIndex)
@@ -509,7 +511,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             if (dateStr != null && title != null) {
                 try {
                     val date = LocalDate.parse(dateStr)
-                    anniversaries.add(Anniversary(id, date, Schedule(id, category, title, solLun)))
+                    val applyDate = LocalDate.parse(applyDt)
+                    anniversaries.add(Anniversary(id, date, applyDate, Schedule(id, category, title, solLun)))
                 } catch (e: java.time.format.DateTimeParseException) {
                     Log.e(TAG, "Error parsing anniversary date: $dateStr", e)
                 }

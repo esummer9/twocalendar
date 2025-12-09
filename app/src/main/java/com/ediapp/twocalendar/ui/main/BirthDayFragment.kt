@@ -67,7 +67,7 @@ import com.ediapp.twocalendar.Anniversary
 import com.ediapp.twocalendar.AnniversaryActivity
 import com.ediapp.twocalendar.Constants
 import com.ediapp.twocalendar.DatabaseHelper
-import com.ediapp.twocalendar.LunarApiService
+import com.ediapp.twocalendar.network.LunarApiService
 import com.ediapp.twocalendar.R
 import com.ediapp.twocalendar.ui.common.QrCodeImage
 import kotlinx.coroutines.Dispatchers
