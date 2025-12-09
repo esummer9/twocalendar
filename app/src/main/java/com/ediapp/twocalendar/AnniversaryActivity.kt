@@ -173,7 +173,6 @@ fun AnniversaryInputCard(
     val anniversaryTypes = listOf(
         stringResource(id = R.string.anniversary_type_birthday),
         stringResource(id = R.string.anniversary_type_anniversary),
-        stringResource(id = R.string.anniversary_type_etc)
     )
     var isAnniversaryTypeExpanded by remember { mutableStateOf(false) }
 
@@ -181,6 +180,7 @@ fun AnniversaryInputCard(
         stringResource(id = R.string.calendar_type_solar),
         stringResource(id = R.string.calendar_type_lunar),
     )
+
     var isCalendarTypeExpanded by remember { mutableStateOf(false) }
 
     var showDatePicker by remember { mutableStateOf(false) }
@@ -315,20 +315,6 @@ fun AnniversaryInputCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 년도 정확 Checkbox
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Checkbox(
-                    checked = anniversaryData.isYearAccurate,
-                    onCheckedChange = { onAnniversaryDataChange(anniversaryData.copy(isYearAccurate = it)) }
-                )
-                Text(stringResource(id = R.string.year_accurate_checkbox_label))
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // 날짜 선택 TextField
             Box {
                 OutlinedTextField(
@@ -343,6 +329,12 @@ fun AnniversaryInputCard(
                         .matchParentSize()
                         .clickable(onClick = { showDatePicker = true })
                 )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.anniversary_not_accurate_label))
             }
         }
     }

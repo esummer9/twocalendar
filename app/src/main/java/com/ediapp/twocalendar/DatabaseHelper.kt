@@ -610,7 +610,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             TABLE_NAME,
             null, // All columns
             "$COL_CATEGORY = ? AND $COL_DELETED_AT IS NULL",
-            arrayOf("personal"),
+            arrayOf("personal", "기념일", "생일"),
             null, null, "$COL_APPLY_DT ASC"
         )
 
