@@ -211,7 +211,7 @@ fun BackupSection(modifier: Modifier = Modifier, randomCode: String, dbHelper: D
 
                         if (backupCount >= 3) {
                             Toast.makeText(context, "하루 백업 횟수(3회)를 초과했습니다.", Toast.LENGTH_SHORT).show()
-                            return@Button
+//                            return@Button
                         }
 
                         backupCount++
