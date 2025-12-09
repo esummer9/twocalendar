@@ -609,7 +609,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val cursor = db.query(
             TABLE_NAME,
             null, // All columns
-            "$COL_CATEGORY in (?) AND $COL_DELETED_AT IS NULL",
+            "($COL_CATEGORY = ? and $COL_CATEGORY = ? and $COL_CATEGORY = ? ) AND $COL_DELETED_AT IS NULL",
             arrayOf("personal", "기념일", "생일"),
             null, null, "$COL_APPLY_DT ASC"
         )
