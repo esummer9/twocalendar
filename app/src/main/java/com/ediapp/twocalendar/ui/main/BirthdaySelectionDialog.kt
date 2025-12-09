@@ -53,7 +53,7 @@ fun BirthdaySelectionDialog(
                             }
                         )
                         Text(text = anniversary.schedule.title, modifier = Modifier.weight(1f))
-                        Text(text = anniversary.date.toString())
+                        Text(text = anniversary.originDt.toString())
                     }
                 }
             }

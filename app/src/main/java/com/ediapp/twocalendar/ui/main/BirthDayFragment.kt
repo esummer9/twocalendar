@@ -79,7 +79,9 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlin.ranges.contains
 
 // data class Schedule is already defined in PersonalScheduleFragment, so it can be reused.
 
@@ -108,7 +110,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
     val anniversaries by produceState(initialValue = emptyList<Anniversary>(), key1 = refreshTrigger, key2 = sortType) {
         val allAnniversaries = dbHelper.getAllAnniversaries()
         value = when (sortType) {
-            SortType.DATE -> allAnniversaries.sortedBy { it.date }
+            SortType.DATE -> allAnniversaries.sortedBy { it.originDt }
             SortType.CATEGORY -> allAnniversaries.sortedBy { it.schedule.category }
             SortType.NAME -> allAnniversaries.sortedBy { it.schedule.title }
         }
@@ -121,7 +123,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             onConfirm = { selectedAnniversaries ->
                 coroutineScope.launch(Dispatchers.IO) {
                     val result = selectedAnniversaries.map { ann ->
-                        "${ann.schedule.category}|${ann.date}|${ann.schedule.title}|${ann.schedule.title}|${ann.schedule.calendarType}|true"
+                        "${ann.schedule.category}|${ann.originDt}|${ann.schedule.title}|${ann.schedule.title}|${ann.schedule.calendarType}|true"
                     }
                     withContext(Dispatchers.Main) {
                         birthdayQrJson = result.joinToString(Constants.my_sep)
@@ -260,10 +262,24 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             } else {
                 LazyColumn(modifier = Modifier.fillMaxHeight()) {
                     items(anniversaries) { anniversary ->
-                        val date = anniversary.date
+                        val originDt = anniversary.originDt
+                        val applyDt = anniversary.applyDt
                         val schedule = anniversary.schedule
                         var showContextMenu by remember { mutableStateOf(false) }
                         var showAddDialog by remember { mutableStateOf(false) }
+
+                        val daysDiff = ChronoUnit.DAYS.between(applyDt, LocalDate.now())
+                        val diffText = when {
+                            daysDiff == 0L -> "오늘"
+                            daysDiff > 0L -> "D+$daysDiff"
+                            else -> "D$daysDiff"
+                        }
+                        val diffColor = when {
+                            daysDiff < 0L -> Color.Gray
+                            daysDiff == 0L -> Color.Red
+                            daysDiff in 1..7 -> Color(0xFFFFA500) // Orange
+                            else -> Color.Unspecified
+                        }
 
                         Box {
                             Row(
@@ -278,47 +294,74 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                             ) {
                                 // 1번째 컬럼: 카테고리
                                 Text(
-                                    text = schedule.category,
+                                    text = diffText,
+                                    color = diffColor,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(0.25f)
+                                    modifier = Modifier.weight(0.2f)
                                 )
 
                                 // 2번째 컬럼: 날짜/요일 및 제목
                                 Column(
                                     modifier = Modifier
-                                        .weight(0.5f)
+                                        .weight(0.65f)
                                         .padding(horizontal = 8.dp)
                                 ) {
-                                    val dayOfWeek = date.dayOfWeek
-                                    val dayOfWeekText = dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+                                    val dayOfWeek = applyDt.dayOfWeek
+                                    val dayOfWeekText = applyDt.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+
                                     val dayOfWeekColor = when (dayOfWeek) {
                                         DayOfWeek.SATURDAY -> Color.Blue
                                         DayOfWeek.SUNDAY -> Color.Red
                                         else -> Color.Unspecified
                                     }
-                                    Text(
-                                        text = buildAnnotatedString {
-                                            append(date.toString())
-                                            append()
-                                            withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
-                                                append("($dayOfWeekText)")
-                                            }
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+
                                     Text(
                                         text = schedule.title,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.SemiBold
                                     )
-                                }
 
-                                // 3번째 컬럼: 음력/양력
+
+                                    // 3번째 컬럼: 음력/양력
+                                    Text(
+                                        text = buildAnnotatedString {
+                                            append("(올해) ")
+
+                                            withStyle(style = SpanStyle(color = Color.Unspecified, fontWeight = FontWeight.Bold)) {
+                                                append("$applyDt ")
+                                            }
+
+                                            withStyle(style = SpanStyle(color = dayOfWeekColor, fontWeight = FontWeight.Bold)) {
+                                                append("($dayOfWeekText)")
+                                            }
+
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+
+                                    Text(
+                                        text = buildAnnotatedString {
+                                            val lunSolColor = when(schedule.calendarType) {
+                                                "음력" -> Color.Blue
+                                                else -> Color.Unspecified
+                                            }
+                                            withStyle(style = SpanStyle(color = lunSolColor, fontWeight = FontWeight.Normal)) {
+                                                append("(${schedule.calendarType}) ")
+                                            }
+                                            append(originDt.toString())
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+
+                                }
                                 Text(
-                                    text = schedule.calendarType ?: "",
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(0.25f),
-                                    textAlign = TextAlign.Center
+                                    text = buildAnnotatedString {
+                                        withStyle(style = SpanStyle(color = Color.DarkGray)) {
+                                            append(schedule.category)
+                                        }
+                                    },
+                                    modifier = Modifier.weight(0.15f),
+                                    style = MaterialTheme.typography.bodyLarge
                                 )
                             }
                             DropdownMenu(
@@ -371,7 +414,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                         Button(
                                             onClick = {
                                                 coroutineScope.launch {
-                                                    val originalDate = anniversary.date
+                                                    val originalDate = anniversary.originDt
                                                     var newDate: LocalDate? = null
 
                                                     if (anniversary.schedule.calendarType == "음력") {
