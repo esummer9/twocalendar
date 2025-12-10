@@ -32,7 +32,7 @@ fun BirthdaySelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("QR 생성대상 선택") },
+        title = { Text("공유대상 선택") },
         text = {
             LazyColumn {
                 items(anniversaries) { anniversary ->
@@ -65,7 +65,7 @@ fun BirthdaySelectionDialog(
                     onDismiss()
                 }
             ) {
-                Text("QR생성")
+                Text("QR Code 공유")
             }
         },
         dismissButton = {

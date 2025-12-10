@@ -107,7 +107,30 @@ class QRCodeActivity : ComponentActivity() {
                                     val anniversaryType = fields[0]
                                     val calendarType = fields[4]
                                     val isYearAccurate = fields[5].toBoolean()
-                                    val applyDt = fields[1]
+
+                                    val originDt = fields[1]
+
+//                                    val applyDt = fields[1]
+                                    val applyDt: LocalDate? = if (calendarType == "음력") {
+                                        LunToSolar(LocalDate.now().year,
+                                            LocalDate.parse(originDt).monthValue,
+                                            LocalDate.parse(originDt).dayOfMonth)
+                                    } else {
+                                        LocalDate.of(
+                                            LocalDate.now().year,
+                                            LocalDate.parse(originDt).monthValue,
+                                            LocalDate.parse(originDt).dayOfMonth
+                                        )
+                                    }
+                                    /**
+                                     * calendarType이 "음력"이라면 올해의 양력으로 변경해서 가져와야함
+                                     */
+
+                                    val newDt : LocalDate = if (applyDt == null) {
+                                        LocalDate.parse(originDt)
+                                    } else {
+                                        applyDt
+                                    }
 
                                     dbHelper.addAnniversary(
                                         source = "qr-code",
@@ -116,8 +139,10 @@ class QRCodeActivity : ComponentActivity() {
                                         category = anniversaryType,
                                         calendarType = calendarType,
                                         isYearAccurate = isYearAccurate,
-                                        applyDt = LocalDate.parse(applyDt),
-                                        originDt = LocalDate.parse(applyDt)
+
+                                        applyDt = newDt,
+
+                                        originDt = LocalDate.parse(originDt)
                                     )
                                     importedCount++
                                 } else {

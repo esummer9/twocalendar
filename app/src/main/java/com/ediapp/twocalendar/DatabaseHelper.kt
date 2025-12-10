@@ -72,8 +72,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
 ) {
     companion object {
         private const val TAG = "DatabaseHelper"
-        private const val DATABASE_NAME = "ediapp.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_NAME = "ediapp2.db"
+        private const val DATABASE_VERSION = 1
 
         // Table name
         const val TABLE_NAME = "tb_days"

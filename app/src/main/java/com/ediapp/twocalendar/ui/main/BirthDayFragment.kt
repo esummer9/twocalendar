@@ -176,7 +176,10 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                     ) {
                         ExtendedFloatingActionButton(
                             text = { Text("추가") },
-                            icon = { Icon(Icons.Filled.Add, "추가") },
+                            icon = { Icon(Icons.Filled.Add,
+                                        contentDescription = "추가",
+                                        )
+                                   },
                             onClick = {
                                 context.startActivity(Intent(context, AnniversaryActivity::class.java))
                                 isFabMenuExpanded = false
@@ -184,7 +187,9 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                         )
                         ExtendedFloatingActionButton(
                             text = { Text("공유") },
-                            icon = { Icon(Icons.Filled.Share, "공유") },
+                            icon = { Icon(painter = painterResource(id = R.drawable.qr_share),
+                                "QR공유"
+                                , modifier = Modifier.size(25.dp)) },
                             onClick = { 
                                 showBirthdaySelectionDialog = true
                                 isFabMenuExpanded = false 
@@ -316,13 +321,15 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                     }
 
                                     Text(
-                                        text = schedule.title,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold
+                                        text = buildAnnotatedString {
+                                            withStyle(style = SpanStyle(color = Color.Unspecified, fontWeight = FontWeight.Bold)) {
+                                                append(schedule.title)
+                                                append(' ')
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.bodyLarge
                                     )
 
-
-                                    // 3번째 컬럼: 음력/양력
                                     Text(
                                         text = buildAnnotatedString {
                                             append("(올해) ")

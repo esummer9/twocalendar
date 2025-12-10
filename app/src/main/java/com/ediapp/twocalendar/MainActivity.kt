@@ -179,6 +179,11 @@ class MainActivity : ComponentActivity() {
             val currentYear = Calendar.getInstance().get(Calendar.YEAR)
             listOf(currentYear, currentYear - 1, currentYear + 1)
         }
+
+        lifecycleScope.launch {
+            UpdateBirthdayUtil.updateBirthdayRecords(applicationContext)
+        }
+
         coroutineScope {
             yearsToFetch.forEach { year ->
                 launch {
