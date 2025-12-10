@@ -1,5 +1,6 @@
 package com.ediapp.twocalendar.ui.main
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,14 +37,22 @@ fun BirthdaySelectionDialog(
         text = {
             LazyColumn {
                 items(anniversaries) { anniversary ->
+                    val isSelected = selectedAnniversaries.contains(anniversary)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable {
+                                selectedAnniversaries = if (isSelected) {
+                                    selectedAnniversaries - anniversary
+                                } else {
+                                    selectedAnniversaries + anniversary
+                                }
+                            }
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
-                            checked = selectedAnniversaries.contains(anniversary),
+                            checked = isSelected,
                             onCheckedChange = { isChecked ->
                                 selectedAnniversaries = if (isChecked) {
                                     selectedAnniversaries + anniversary
