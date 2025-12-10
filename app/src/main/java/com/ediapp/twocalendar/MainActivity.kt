@@ -387,12 +387,30 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("QR Code 읽기") },
+                                text = { Text("가이드") },
+                                onClick = {
+                                    context.startActivity(Intent(context, GuideActivity::class.java))
+                                    menuExpanded = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("QR Code") },
                                 onClick = {
                                     context.startActivity(Intent(context, QRCodeActivity::class.java))
                                     menuExpanded = false
                                 }
                             )
+
+                            DropdownMenuItem(
+                                text = { Text("백업/복원") },
+                                enabled = isEmulator() || backupCalendarEnabledByRemoteConfig,
+                                onClick = {
+                                    context.startActivity(Intent(context, BackupActivity::class.java))
+                                    menuExpanded = false
+                                }
+                            )
+
                             DropdownMenuItem(
                                 text = { Text("설정") },
                                 onClick = {
@@ -400,21 +418,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                     menuExpanded = false
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("백업하기") },
-                                enabled = isEmulator() || backupCalendarEnabledByRemoteConfig,
-                                onClick = {
-                                    context.startActivity(Intent(context, BackupActivity::class.java))
-                                    menuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("가이드 보기") },
-                                onClick = {
-                                    context.startActivity(Intent(context, GuideActivity::class.java))
-                                    menuExpanded = false
-                                }
-                            )
+
                         }
                     }
                 },
