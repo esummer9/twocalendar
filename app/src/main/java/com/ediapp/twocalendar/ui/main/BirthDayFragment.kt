@@ -411,7 +411,17 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                 AlertDialog(
                                     onDismissRequest = { showDeleteConfirmationDialog = false },
                                     title = { Text("삭제 확인") },
-                                    text = { Text("정말로 이 기념일을 삭제하시겠습니까?") },
+                                    text = {
+                                        Text(
+                                            buildAnnotatedString {
+                                                append("정말로 ")
+                                                withStyle(style = SpanStyle(color = Color.DarkGray, fontWeight = FontWeight.Bold)) {
+                                                    append(schedule.title)
+                                                }
+                                                append(" 기념일을 삭제하시겠습니까?")
+                                            }
+                                        )
+                                    },
                                     confirmButton = {
                                         Button(
                                             onClick = {
