@@ -1,6 +1,7 @@
 package com.ediapp.twocalendar.ui.main
 
 import android.content.Intent
+import android.provider.CalendarContract
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -78,6 +79,7 @@ import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -301,12 +303,26 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 // 1번째 컬럼: 카테고리
-                                Text(
-                                    text = diffText,
-                                    color = diffColor,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(0.2f)
-                                )
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(0.2f)
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    Text(
+                                        text = diffText,
+                                        color = diffColor,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        text = buildAnnotatedString {
+                                            withStyle(style = SpanStyle(color = Color.DarkGray)) {
+                                                append(schedule.category)
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
 
                                 // 2번째 컬럼: 날짜/요일 및 제목
                                 Column(
@@ -349,6 +365,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                         style = MaterialTheme.typography.bodyMedium
                                     )
 
+
                                     Text(
                                         text = buildAnnotatedString {
                                             val lunSolColor = when(schedule.calendarType) {
@@ -364,15 +381,30 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                     )
 
                                 }
-                                Text(
-                                    text = buildAnnotatedString {
-                                        withStyle(style = SpanStyle(color = Color.DarkGray)) {
-                                            append(schedule.category)
+                                Column(
+                                    modifier = Modifier
+                                        .weight(0.1f)
+                                        .padding(horizontal = 1.dp)
+                                ) {
+                                    // Google Calendar 공유하기 자리
+                                    IconButton(onClick = {
+                                        val intent = Intent(Intent.ACTION_INSERT).apply {
+                                            data = CalendarContract.Events.CONTENT_URI
+                                            putExtra(CalendarContract.Events.TITLE, schedule.title)
+                                            val startTime = anniversary.applyDt.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                                            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTime)
+                                            putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
                                         }
-                                    },
-                                    modifier = Modifier.weight(0.15f),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                                        context.startActivity(Intent.createChooser(intent, "기념일 공유"))
+                                    }) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.share),
+                                            modifier = Modifier.size(25.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            contentDescription = "구글캘린더"
+                                        )
+                                    }
+                                }
                             }
                             DropdownMenu(
                                 expanded = showContextMenu,
@@ -404,6 +436,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                         showDeleteConfirmationDialog = true // Show confirmation dialog
                                     }
                                 )
+
                             }
 
                             // Delete Confirmation Dialog
