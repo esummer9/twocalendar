@@ -64,8 +64,11 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.LaunchedEffect
+import com.ediapp.twocalendar.ui.main.EXTRA_ANNIVERSARY_ID // Import the constant
 
 data class AnniversaryData(
+    var id: Long = 0L,
     var name: String = "",
     var shortName: String = "",
     var anniversaryType: String = "",
@@ -73,7 +76,6 @@ data class AnniversaryData(
     var isYearAccurate: Boolean = false,
     var selectedDate: LocalDate = LocalDate.now()
 )
-
 
 suspend fun LunToSolar ( year: Int, month: Int, day: Int): LocalDate? {
     return LunarApi.convertToSolar(year, month, day)
@@ -89,6 +91,30 @@ class AnniversaryActivity : ComponentActivity() {
                 val dbHelper = remember { DatabaseHelper(context) }
                 var anniversaryData by remember { mutableStateOf(AnniversaryData()) }
                 val coroutineScope = rememberCoroutineScope()
+
+                val anniversaryId = intent.getLongExtra(EXTRA_ANNIVERSARY_ID, 0L)
+                Log.d("AnniversaryActivity", "Received anniversaryId: $anniversaryId")
+
+                LaunchedEffect(anniversaryId) {
+                    if (anniversaryId != 0L) {
+                        val anniversary = dbHelper.getAnniversaryById(anniversaryId)
+                        anniversary?.let { ann ->
+                            Log.d("AnniversaryActivity", "Loaded anniversary: $ann")
+                            anniversaryData = AnniversaryData(
+                                id = ann.id.toLong(),
+                                name = ann.schedule.title,
+                                shortName = ann.shortName,
+                                anniversaryType = ann.schedule.category,
+                                calendarType = ann.schedule.calendarType?: "양력",
+                                isYearAccurate = ann.isYearAccurate,
+                                selectedDate = ann.originDt
+                            )
+                            Log.d("AnniversaryActivity", "AnniversaryData after update: $anniversaryData")
+                        } ?: run {
+                            Log.e("AnniversaryActivity", "Anniversary with ID $anniversaryId not found.")
+                        }
+                    }
+                }
 
                 Scaffold(
                     topBar = {
@@ -126,15 +152,29 @@ class AnniversaryActivity : ComponentActivity() {
 
                                             Log.d("AnniversaryActivity", "applyDt: $applyDt")
 
-                                            dbHelper.addAnniversary(
-                                                name = anniversaryData.name,
-                                                shortName = anniversaryData.shortName,
-                                                category = anniversaryData.anniversaryType,
-                                                calendarType = anniversaryData.calendarType,
-                                                isYearAccurate = anniversaryData.isYearAccurate,
-                                                originDt = anniversaryData.selectedDate,
-                                                applyDt = applyDt ?: anniversaryData.selectedDate
-                                            )
+                                            if (anniversaryData.id == 0L) {
+                                                dbHelper.addAnniversary(
+                                                    name = anniversaryData.name,
+                                                    shortName = anniversaryData.shortName,
+                                                    category = anniversaryData.anniversaryType,
+                                                    calendarType = anniversaryData.calendarType,
+                                                    isYearAccurate = anniversaryData.isYearAccurate,
+                                                    originDt = anniversaryData.selectedDate,
+                                                    applyDt = applyDt ?: anniversaryData.selectedDate
+                                                )
+                                            } else {
+                                                dbHelper.updateAnniversary(
+                                                    id = anniversaryData.id,
+                                                    name = anniversaryData.name,
+                                                    shortName = anniversaryData.shortName,
+                                                    category = anniversaryData.anniversaryType,
+                                                    calendarType = anniversaryData.calendarType,
+                                                    isYearAccurate = anniversaryData.isYearAccurate,
+                                                    originDt = anniversaryData.selectedDate,
+                                                    applyDt = applyDt ?: anniversaryData.selectedDate
+                                                )
+                                            }
+
                                             withContext(Dispatchers.Main) {
                                                 (context as? Activity)?.finish()
                                             }
@@ -240,7 +280,7 @@ fun AnniversaryInputCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp)) 
 
             // 기념일 종류, 양력/음력
             Row(

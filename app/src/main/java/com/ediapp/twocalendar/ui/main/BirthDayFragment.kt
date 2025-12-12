@@ -89,6 +89,8 @@ private enum class SortType {
     DATE, CATEGORY, NAME
 }
 
+const val EXTRA_ANNIVERSARY_ID = "extra_anniversary_id"
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = null, scheduleUpdateTrigger: Int) { // Add scheduleUpdateTrigger parameter
@@ -123,7 +125,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             onConfirm = { selectedAnniversaries ->
                 coroutineScope.launch(Dispatchers.IO) {
                     val result = selectedAnniversaries.map { ann ->
-                        "${ann.schedule.category}|${ann.originDt}|${ann.schedule.title}|${ann.schedule.title}|${ann.schedule.calendarType}|true"
+                        "${ann.schedule.category}|${ann.originDt}|${ann.schedule.title}|${ann.shortName}|${ann.schedule.calendarType}|${ann.isYearAccurate}"
                     }
                     withContext(Dispatchers.Main) {
                         birthdayQrJson = result.joinToString(Constants.my_sep)
@@ -272,6 +274,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                         val schedule = anniversary.schedule
                         var showContextMenu by remember { mutableStateOf(false) }
                         var showAddDialog by remember { mutableStateOf(false) }
+                        var showDeleteConfirmationDialog by remember { mutableStateOf(false) } // Add state for delete confirmation
 
                         val daysDiff = ChronoUnit.DAYS.between(applyDt, LocalDate.now())
                         val diffText = when {
@@ -382,12 +385,48 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                         showAddDialog = true
                                     }
                                 )
+                                
+                                DropdownMenuItem(
+                                    text = { Text("수정") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        val intent = Intent(context, AnniversaryActivity::class.java).apply {
+                                            putExtra(EXTRA_ANNIVERSARY_ID, anniversary.id.toLong())
+                                        }
+                                        context.startActivity(intent)
+                                    }
+                                )
+                                
                                 DropdownMenuItem(
                                     text = { Text("삭제") },
                                     onClick = {
-                                        dbHelper.deleteAnniversary(anniversary.id)
                                         showContextMenu = false
-                                        refreshTrigger++
+                                        showDeleteConfirmationDialog = true // Show confirmation dialog
+                                    }
+                                )
+                            }
+
+                            // Delete Confirmation Dialog
+                            if (showDeleteConfirmationDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showDeleteConfirmationDialog = false },
+                                    title = { Text("삭제 확인") },
+                                    text = { Text("정말로 이 기념일을 삭제하시겠습니까?") },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                dbHelper.deleteAnniversary(anniversary.id)
+                                                showDeleteConfirmationDialog = false
+                                                refreshTrigger++
+                                            }
+                                        ) {
+                                            Text("확인")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        Button(onClick = { showDeleteConfirmationDialog = false }) {
+                                            Text("취소")
+                                        }
                                     }
                                 )
                             }

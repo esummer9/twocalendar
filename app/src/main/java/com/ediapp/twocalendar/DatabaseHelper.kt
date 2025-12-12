@@ -16,7 +16,14 @@ import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 
 data class Saying(val saying: String, val author: String)
-data class Anniversary(val id: Int, val originDt: LocalDate, val applyDt: LocalDate, val schedule: Schedule)
+data class Anniversary(
+    val id: Int,
+    val originDt: LocalDate,
+    val applyDt: LocalDate,
+    val shortName: String,
+    val isYearAccurate: Boolean,
+    val schedule: Schedule
+)
 
 data class DayRecord(
     val id: Int,
@@ -420,10 +427,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
     fun addAnniversary(source: String = "manual", name: String, shortName: String, category: String, calendarType: String, isYearAccurate: Boolean, originDt: LocalDate, applyDt: LocalDate) {
         val db = this.writableDatabase
 
-        val selection = "$COL_TITLE = ? AND $COL_CATEGORY = ? AND $COL_SOL_LUN = ? AND $COL_APPLY_DT = ? and deleted_at is null "
+        val selection = "$COL_TITLE = ? AND $COL_CATEGORY = ? AND $COL_SOL_LUN = ? AND $COL_ORIGIN_DT = ? and deleted_at is null "
         val selectionArgs = arrayOf(name, category, calendarType, originDt.toString())
 
-        Log.d(TAG, "addAnniversary: ${selectionArgs.joinToString ("")}")
+        Log.d(TAG, "addAnniversary - Checking for existing: ${selectionArgs.joinToString()}")
 
         val cursor = db.query(
             TABLE_NAME_ANNIVERSARY,
@@ -441,6 +448,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
                 put(COL_SOURCE, source)
                 put(COL_ALIAS, shortName)
                 put(COL_VERIFY, isYearAccurate)
+                put(COL_APPLY_DT, applyDt.toString()) // Update applyDt as it might change based on lunar year
             }
             db.update(
                 TABLE_NAME_ANNIVERSARY,
@@ -461,7 +469,6 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
                 put(COL_CATEGORY, category)
                 put(COL_SOL_LUN, calendarType)
                 put(COL_VERIFY, isYearAccurate)
-//                var applyDt = LocalDate.of(LocalDate.now().year, originDt.monthValue, originDt.dayOfMonth)
                 put(COL_APPLY_DT, applyDt.toString())
                 put(COL_ORIGIN_DT, originDt.toString())
             }
@@ -469,6 +476,72 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             Log.d(TAG, "Inserted new anniversary for: $name")
         }
         cursor.close()
+    }
+    
+    fun updateAnniversary(id: Long, source: String = "manual", name: String, shortName: String, category: String, calendarType: String, isYearAccurate: Boolean, originDt: LocalDate, applyDt: LocalDate) {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put(COL_SOURCE, source)
+            put(COL_TITLE, name)
+            put(COL_ALIAS, shortName)
+            put(COL_CATEGORY, category)
+            put(COL_SOL_LUN, calendarType)
+            put(COL_VERIFY, isYearAccurate)
+            put(COL_APPLY_DT, applyDt.toString())
+            put(COL_ORIGIN_DT, originDt.toString())
+            put(COL_CREATED_AT, LocalDateTime.now().toString()) // Update the modified timestamp
+        }
+        val rowsAffected = db.update(
+            TABLE_NAME_ANNIVERSARY,
+            values,
+            "$COL_ID = ?",
+            arrayOf(id.toString())
+        )
+        if (rowsAffected > 0) {
+            Log.d(TAG, "Anniversary with ID $id updated successfully.")
+        } else {
+            Log.d(TAG, "Failed to update anniversary with ID $id.")
+        }
+    }
+
+    fun getAnniversaryById(id: Long): Anniversary? {
+        val db = this.readableDatabase
+        val cursor = db.query(
+            TABLE_NAME_ANNIVERSARY,
+            arrayOf(COL_ID, COL_ORIGIN_DT, COL_APPLY_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN, COL_VERIFY),
+            "$COL_ID = ?",
+            arrayOf(id.toString()),
+            null, null, null
+        )
+
+        var anniversary: Anniversary? = null
+        if (cursor.moveToFirst()) {
+            val anniversaryId = cursor.getInt(cursor.getColumnIndexOrThrow(COL_ID))
+            val originDtStr = cursor.getString(cursor.getColumnIndexOrThrow(COL_ORIGIN_DT))
+            val applyDtStr = cursor.getString(cursor.getColumnIndexOrThrow(COL_APPLY_DT))
+            val title = cursor.getString(cursor.getColumnIndexOrThrow(COL_TITLE))
+            val alias = cursor.getString(cursor.getColumnIndexOrThrow(COL_ALIAS)) ?: ""
+            val category = cursor.getString(cursor.getColumnIndexOrThrow(COL_CATEGORY))
+            val solLun = cursor.getString(cursor.getColumnIndexOrThrow(COL_SOL_LUN))
+            val isYearAccurate = cursor.getInt(cursor.getColumnIndexOrThrow(COL_VERIFY)) == 1
+
+            try {
+                val originDate = LocalDate.parse(originDtStr)
+                val applyDate = LocalDate.parse(applyDtStr)
+                anniversary = Anniversary(
+                    anniversaryId,
+                    originDate,
+                    applyDate,
+                    alias,
+                    isYearAccurate,
+                    Schedule(anniversaryId, category, title, solLun)
+                )
+            } catch (e: java.time.format.DateTimeParseException) {
+                Log.e(TAG, "Error parsing date for anniversary ID $id: ${e.message}")
+            }
+        }
+        cursor.close()
+        return anniversary
     }
     
     fun deleteAnniversary(id: Int) {
@@ -487,7 +560,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val anniversaries = mutableListOf<Anniversary>()
         val cursor = db.query(
             TABLE_NAME_ANNIVERSARY,
-            arrayOf(COL_ID, COL_APPLY_DT, COL_ORIGIN_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN),
+            arrayOf(COL_ID, COL_APPLY_DT, COL_ORIGIN_DT, COL_TITLE, COL_ALIAS, COL_CATEGORY, COL_SOL_LUN, COL_VERIFY),
             "$COL_DELETED_AT IS NULL", null, null, null, "$COL_APPLY_DT ASC"
         )
 
@@ -498,6 +571,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
         val aliasColumnIndex = cursor.getColumnIndexOrThrow(COL_ALIAS)
         val categoryColumnIndex = cursor.getColumnIndexOrThrow(COL_CATEGORY)
         val solLunColumnIndex = cursor.getColumnIndexOrThrow(COL_SOL_LUN)
+        val isYearAccurateColumnIndex = cursor.getColumnIndexOrThrow(COL_VERIFY)
 
 
         while (cursor.moveToNext()) {
@@ -505,14 +579,16 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(
             val originDt = cursor.getString(originDtColumnIndex)
             val applyDt = cursor.getString(applyDtColumnIndex)
             val title = cursor.getString(titleColumnIndex)
-            val alias = cursor.getString(aliasColumnIndex)
+            val alias = cursor.getString(aliasColumnIndex) ?: ""
             val category = cursor.getString(categoryColumnIndex)
             val solLun = cursor.getString(solLunColumnIndex)
+            val isYearAccurate = cursor.getInt(isYearAccurateColumnIndex) == 1
+
             if (originDt != null && title != null) {
                 try {
                     val date = LocalDate.parse(originDt)
                     val applyDate = LocalDate.parse(applyDt)
-                    anniversaries.add(Anniversary(id, date, applyDate, Schedule(id, category, title, solLun)))
+                    anniversaries.add(Anniversary(id, date, applyDate, alias, isYearAccurate, Schedule(id, category, title, solLun)))
                 } catch (e: java.time.format.DateTimeParseException) {
                     Log.e(TAG, "Error parsing anniversary date: $originDt", e)
                 }
