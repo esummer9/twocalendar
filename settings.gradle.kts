@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "twocalendar"
 include(":app")
- 
+include(":photosaver")
