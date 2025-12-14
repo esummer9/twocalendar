@@ -339,6 +339,7 @@ fun AdmobBanner(modifier: Modifier = Modifier) {
 @Composable
 fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int) -> Unit) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var showSuggestionDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val tabTitles = listOf("오늘", "1+1달력", "개인일정", stringResource(id = R.string.anniversary))
@@ -373,6 +374,30 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
         )
     }
 
+    if (showSuggestionDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuggestionDialog = false },
+            title = { Text("건의하기") },
+            text = { Text("구글폼즈로 이동합니다") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://forms.gle/jvYAk5GTNWdWMaSL7"))
+                        context.startActivity(intent)
+                        showSuggestionDialog = false
+                    }
+                ) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSuggestionDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -402,6 +427,14 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                     menuExpanded = false
                                 }
                             )
+
+//                            DropdownMenuItem(
+//                                text = { Text("건의하기") },
+//                                onClick = {
+//                                    showSuggestionDialog = true
+//                                    menuExpanded = false
+//                                }
+//                            )
 
                             DropdownMenuItem(
                                 text = { Text("백업/복원") },
@@ -445,15 +478,16 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
 
                         }
                     }
+
                     IconButton(onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://forms.gle/1ATiENWrT3Xjc3Fd8"))
-                        context.startActivity(intent)
+                        showSuggestionDialog = true
                     }) {
                         Icon(painter = painterResource(id = R.drawable.poll),
                             modifier = Modifier.size(30.dp),
                             tint = MaterialTheme.colorScheme.primary,
                             contentDescription = "건의하기")
                     }
+
                 }
             )
         },
