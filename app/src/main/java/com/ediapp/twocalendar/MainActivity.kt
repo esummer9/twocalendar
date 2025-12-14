@@ -3,6 +3,7 @@ package com.ediapp.twocalendar
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -191,7 +192,7 @@ class MainActivity : ComponentActivity() {
                         val category = apiKey.lowercase()
                         if (dbHelper.countDaysByCategoryAndYear(category, year) == 0) {
                             val holidayApiConfig = Constants.API_CONFIGS[apiKey]
-                                ?: throw IllegalArgumentException("API config for ${'$'}apiKey not found")
+                                ?: throw IllegalArgumentException("API config for ${"$"}apiKey not found")
                             val retrofit = Retrofit.Builder()
                                 .baseUrl(holidayApiConfig.baseUrl)
                                 .addConverterFactory(SimpleXmlConverterFactory.create())
@@ -217,10 +218,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
-                                    Log.e("MainActivity", "Error fetching holidays for ${'$'}apiKey: ${'$'}{response.errorBody()?.string()}")
+                                    Log.e("MainActivity", "Error fetching holidays for ${"$"}apiKey: ${"$"}{response.errorBody()?.string()}")
                                 }
                             } catch (e: Exception) {
-                                Log.e("MainActivity", "Exception fetching holidays for ${'$'}apiKey", e)
+                                Log.e("MainActivity", "Exception fetching holidays for ${"$"}apiKey", e)
                             }
                         }
                     }
@@ -444,6 +445,15 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
 
                         }
                     }
+                    IconButton(onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://forms.gle/1ATiENWrT3Xjc3Fd8"))
+                        context.startActivity(intent)
+                    }) {
+                        Icon(painter = painterResource(id = R.drawable.poll),
+                            modifier = Modifier.size(30.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                            contentDescription = "건의하기")
+                    }
                 }
             )
         },
@@ -516,7 +526,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                 2 -> PersonalScheduleFragment(
                     modifier = Modifier.fillMaxHeight(),
                     selectedDate = selectedDateForPersonalSchedule,
-                    scheduleUpdateTrigger = scheduleUpdateTrigger // Pass the trigger
+                    scheduleUpdateTrigger = scheduleUpdateTrigger
                 )
                 3 -> BirthDayFragment(
                     modifier = Modifier.fillMaxHeight(),
