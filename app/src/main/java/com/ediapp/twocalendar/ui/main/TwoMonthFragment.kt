@@ -243,7 +243,7 @@ fun TwoMonthFragment(
                         enabled = visibleCalList
                     ) {
                         Icon(
-                            imageVector = if (!showHolidayListInFirstMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            painter = if (!showHolidayListInFirstMonth) painterResource(id = R.drawable.hide)  else painterResource(id = R.drawable.view),
                             contentDescription = "개인일정 목록 보기 토글"
                         )
                     }
@@ -281,7 +281,7 @@ fun TwoMonthFragment(
                         enabled = visibleCalList
                     ) {
                         Icon(
-                            imageVector = if (!showHolidayListInSecondMonth) Icons.Filled.Info else Icons.Filled.Close,
+                            painter = if (!showHolidayListInSecondMonth) painterResource(id = R.drawable.hide)  else painterResource(id = R.drawable.view),
                             contentDescription = "개인일정 목록 보기 토글"
                         )
                     }
