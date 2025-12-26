@@ -21,8 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -243,7 +241,7 @@ fun TwoMonthFragment(
                         enabled = visibleCalList
                     ) {
                         Icon(
-                            painter = if (!showHolidayListInFirstMonth) painterResource(id = R.drawable.hide)  else painterResource(id = R.drawable.view),
+                            painter = painterResource(id = if (showHolidayListInFirstMonth) R.drawable.hide else R.drawable.view),
                             contentDescription = "개인일정 목록 보기 토글"
                         )
                     }
@@ -281,7 +279,7 @@ fun TwoMonthFragment(
                         enabled = visibleCalList
                     ) {
                         Icon(
-                            painter = if (!showHolidayListInSecondMonth) painterResource(id = R.drawable.hide)  else painterResource(id = R.drawable.view),
+                            painter = painterResource(id = if (showHolidayListInSecondMonth) R.drawable.hide else R.drawable.view),
                             contentDescription = "개인일정 목록 보기 토글"
                         )
                     }

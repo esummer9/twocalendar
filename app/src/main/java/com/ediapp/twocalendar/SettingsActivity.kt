@@ -1,12 +1,18 @@
 package com.ediapp.twocalendar
 
+import android.Manifest
+import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.CalendarContract
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -20,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -49,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.ediapp.twocalendar.ui.theme.TwocalendarTheme
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
@@ -64,16 +72,62 @@ class SettingsActivity : ComponentActivity() {
     private var mInterstitialAd: InterstitialAd? = null
     private val TAG = "SettingsActivity"
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(this, "Permission granted", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         loadInterstitialAd()
         setContent {
             TwocalendarTheme {
-                SettingsScreen(onBack = { showInterstitialAndFinish() })
+                SettingsScreen(
+                    onBack = { showInterstitialAndFinish() },
+                    createCalendar = { calendarName -> createNewCalendar(calendarName) }
+                )
             }
         }
     }
+
+    private fun createNewCalendar(calendarName: String) {
+        when {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_CALENDAR
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                val calValues = ContentValues().apply {
+                    put(CalendarContract.Calendars.ACCOUNT_NAME, "com.ediapp.twocalendar")
+                    put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+                    put(CalendarContract.Calendars.NAME, calendarName)
+                    put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, calendarName)
+                    put(CalendarContract.Calendars.CALENDAR_COLOR, 0x00FF00)
+                    put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CAL_ACCESS_OWNER)
+                    put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, ZoneId.systemDefault().id)
+                    put(CalendarContract.Calendars.SYNC_EVENTS, 1)
+                }
+
+                val uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+                    .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+                    .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, "com.ediapp.twocalendar")
+                    .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+                    .build()
+
+                val resultUri = contentResolver.insert(uri, calValues)
+                Toast.makeText(this, "Calendar created: $resultUri", Toast.LENGTH_LONG).show()
+            }
+            else -> {
+                requestPermissionLauncher.launch(Manifest.permission.WRITE_CALENDAR)
+            }
+        }
+    }
+
 
     private fun loadInterstitialAd() {
         val adRequest = AdRequest.Builder().build()
@@ -125,7 +179,7 @@ class SettingsActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, createCalendar: (String) -> Unit) {
     val context = LocalContext.current
     val sharedPreferences = remember {
         context.getSharedPreferences("important_day_prefs", Context.MODE_PRIVATE)
@@ -184,6 +238,36 @@ fun SettingsScreen(onBack: () -> Unit) {
                 showDayOfYear = showDayOfYear,
                 onShowDayOfYearChange = { showDayOfYear = it }
             )
+            Spacer(modifier = Modifier.height(16.dp))
+            GoogleCalendarSettings(createCalendar = createCalendar)
+        }
+    }
+}
+
+@Composable
+fun GoogleCalendarSettings(createCalendar: (String) -> Unit) {
+    var calendarName by remember { mutableStateOf("1+1달력") }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = BorderStroke(1.dp, Color.Gray)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("구글캘린더")
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = calendarName,
+                onValueChange = { calendarName = it },
+                label = { Text("내 캘린더") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { createCalendar(calendarName) }) {
+                Text("생성")
+            }
         }
     }
 }
@@ -279,7 +363,7 @@ fun ImportantDaySettings(
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                     readOnly = true,
                     value = calculationMethod,
-                    onValueChange = {},
+                    onValueChange = { },
                     label = { Text("계산방법") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 )
@@ -333,6 +417,6 @@ fun ImportantDaySettings(
 @Composable
 fun SettingsScreenPreview() {
     TwocalendarTheme {
-        SettingsScreen(onBack = {})
+        SettingsScreen(onBack = {}, createCalendar = {})
     }
 }
