@@ -428,14 +428,6 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                                 }
                             )
 
-//                            DropdownMenuItem(
-//                                text = { Text("건의하기") },
-//                                onClick = {
-//                                    showSuggestionDialog = true
-//                                    menuExpanded = false
-//                                }
-//                            )
-
                             DropdownMenuItem(
                                 text = { Text("백업/복원") },
                                 enabled = isEmulator() || backupCalendarEnabledByRemoteConfig,
