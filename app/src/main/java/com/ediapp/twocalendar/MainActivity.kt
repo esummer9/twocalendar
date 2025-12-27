@@ -72,7 +72,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.ediapp.twocalendar.network.HolidayApiService
-import com.ediapp.twocalendar.ui.main.BirthDayFragment
+import com.ediapp.twocalendar.ui.main.AnniversaryFragment
 import com.ediapp.twocalendar.ui.main.PersonalScheduleFragment
 import com.ediapp.twocalendar.ui.main.TodayFragment
 import com.ediapp.twocalendar.ui.main.TwoMonthFragment
@@ -562,7 +562,7 @@ fun MainScreenWithBottomBar(dbHelper: DatabaseHelper, fetchHolidaysForYear: (Int
                     selectedDate = selectedDateForPersonalSchedule,
                     scheduleUpdateTrigger = scheduleUpdateTrigger
                 )
-                3 -> BirthDayFragment(
+                3 -> AnniversaryFragment(
                     modifier = Modifier.fillMaxHeight(),
                     selectedDate = selectedDateForPersonalSchedule,
                     scheduleUpdateTrigger = scheduleUpdateTrigger

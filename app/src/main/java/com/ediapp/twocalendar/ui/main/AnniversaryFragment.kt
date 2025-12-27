@@ -1,9 +1,15 @@
 package com.ediapp.twocalendar.ui.main
 
+import android.Manifest
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -23,9 +29,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,14 +68,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.ediapp.twocalendar.Anniversary
 import com.ediapp.twocalendar.AnniversaryActivity
 import com.ediapp.twocalendar.Constants
 import com.ediapp.twocalendar.DatabaseHelper
-import com.ediapp.twocalendar.network.LunarApiService
 import com.ediapp.twocalendar.R
+import com.ediapp.twocalendar.network.LunarApiService
 import com.ediapp.twocalendar.ui.common.QrCodeImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -83,7 +90,6 @@ import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
-import kotlin.ranges.contains
 
 // data class Schedule is already defined in PersonalScheduleFragment, so it can be reused.
 
@@ -95,7 +101,7 @@ const val EXTRA_ANNIVERSARY_ID = "extra_anniversary_id"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = null, scheduleUpdateTrigger: Int) { // Add scheduleUpdateTrigger parameter
+fun AnniversaryFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = null, scheduleUpdateTrigger: Int) { // Add scheduleUpdateTrigger parameter
     val context = LocalContext.current
     val dbHelper = remember { DatabaseHelper(context) }
     var baseMonth by remember { mutableStateOf(YearMonth.now()) }
@@ -110,6 +116,37 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
     var showBirthdaySelectionDialog by remember { mutableStateOf(false) }
     var showBirthdayQrCodeDialog by remember { mutableStateOf(false) }
     var birthdayQrJson by remember { mutableStateOf<String?>(null) }
+    var showCalendarShareDialog by remember { mutableStateOf(false) }
+
+    var anniversariesToBulkAdd by remember { mutableStateOf<List<Anniversary>?>(null) }
+    var yearToBulkAdd by remember { mutableIntStateOf(0) }
+
+    var showCalendarAddSuccessDialog by remember { mutableStateOf(false) }
+    var calendarAddSuccessCount by remember { mutableIntStateOf(0) }
+
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            if (permissions[Manifest.permission.WRITE_CALENDAR] == true && permissions[Manifest.permission.READ_CALENDAR] == true) {
+                anniversariesToBulkAdd?.let { anniversaries ->
+                    if (yearToBulkAdd != 0) {
+                        coroutineScope.launch {
+                            val successCount = addEventsToCalendar(context, anniversaries, yearToBulkAdd)
+                            if (successCount > 0) {
+                                calendarAddSuccessCount = successCount
+                                showCalendarAddSuccessDialog = true
+                            }
+                            anniversariesToBulkAdd = null
+                            yearToBulkAdd = 0
+                        }
+                    }
+                }
+            } else {
+                Toast.makeText(context, "캘린더 읽기/쓰기 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
 
     val anniversaries by produceState(initialValue = emptyList<Anniversary>(), key1 = refreshTrigger, key2 = sortType) {
         val allAnniversaries = dbHelper.getAllAnniversaries()
@@ -120,8 +157,21 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
         }
     }
 
+    if (showCalendarAddSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showCalendarAddSuccessDialog = false },
+            title = { Text("알림") },
+            text = { Text("${calendarAddSuccessCount}개의 기념일이 캘린더에 추가되었습니다. 캘린더에 반영은 약간의 시간이 걸립니다.") },
+            confirmButton = {
+                Button(onClick = { showCalendarAddSuccessDialog = false }) {
+                    Text("확인")
+                }
+            }
+        )
+    }
+
     if (showBirthdaySelectionDialog) {
-        BirthdaySelectionDialog(
+        AnniversarySelectionDialog(
             anniversaries = anniversaries,
             onDismiss = { showBirthdaySelectionDialog = false },
             onConfirm = { selectedAnniversaries ->
@@ -143,6 +193,86 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
             showBirthdayQrCodeDialog = false
             birthdayQrJson = null
         })
+    }
+
+    if (showCalendarShareDialog) {
+        CalendarShareDialog(
+            anniversaries = anniversaries,
+            onDismiss = { showCalendarShareDialog = false },
+            onConfirm = { selectedAnniversaries, year ->
+                showCalendarShareDialog = false
+                if (selectedAnniversaries.size > 1) {
+                    val hasWritePermission = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED
+                    val hasReadPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
+
+                    if (hasWritePermission && hasReadPermission) {
+                        coroutineScope.launch {
+                            val successCount = addEventsToCalendar(context, selectedAnniversaries, year)
+                            if (successCount > 0) {
+                                calendarAddSuccessCount = successCount
+                                showCalendarAddSuccessDialog = true
+                            }
+                        }
+                    } else {
+                        anniversariesToBulkAdd = selectedAnniversaries
+                        yearToBulkAdd = year
+                        calendarPermissionLauncher.launch(
+                            arrayOf(Manifest.permission.WRITE_CALENDAR, Manifest.permission.READ_CALENDAR)
+                        )
+                    }
+                } else if (selectedAnniversaries.isNotEmpty()) {
+                    // Single add
+                    coroutineScope.launch {
+                        val ann = selectedAnniversaries.first()
+                        val originalDate = ann.originDt
+                        var newDate: LocalDate? = null
+
+                        if (ann.schedule.calendarType == "음력") {
+                            val apiConfig = Constants.API_CONFIGS["LUNAR"]
+                            val retrofit = Retrofit.Builder()
+                                .baseUrl(apiConfig!!.baseUrl)
+                                .addConverterFactory(SimpleXmlConverterFactory.create())
+                                .build()
+                            val service = retrofit.create(LunarApiService::class.java)
+                            try {
+                                val response = service.getLunarDate(
+                                    serviceKey = apiConfig.serviceKey,
+                                    fromSolYear = year.toString(),
+                                    toSolYear = year.toString(),
+                                    lunMonth = String.format("%02d", originalDate.monthValue),
+                                    lunDay = String.format("%02d", originalDate.dayOfMonth)
+                                )
+                                if (response.isSuccessful) {
+                                    val lunarItem = response.body()?.body?.items?.itemList?.firstOrNull()
+                                    if (lunarItem != null) {
+                                        newDate = LocalDate.of(lunarItem.solYear, lunarItem.solMonth, lunarItem.solDay)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("AnniversaryFragment", "API Call Failed: ${e.message}")
+                            }
+                        } else {
+                            newDate = LocalDate.of(year, originalDate.month, originalDate.dayOfMonth)
+                        }
+
+                        if (newDate != null) {
+                            val intent = Intent(Intent.ACTION_INSERT).apply {
+                                data = CalendarContract.Events.CONTENT_URI
+                                putExtra(CalendarContract.Events.TITLE, ann.schedule.title)
+                                val startTime = newDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTime)
+                                putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "기념일 공유"))
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "${ann.schedule.title} 날짜 변환에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+            }
+        )
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -180,23 +310,26 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                     ) {
                         ExtendedFloatingActionButton(
                             text = { Text("추가") },
-                            icon = { Icon(Icons.Filled.Add,
-                                        contentDescription = "추가",
-                                        )
-                                   },
+                            icon = { Icon(Icons.Filled.Add, contentDescription = "추가") },
                             onClick = {
                                 context.startActivity(Intent(context, AnniversaryActivity::class.java))
                                 isFabMenuExpanded = false
                             }
                         )
                         ExtendedFloatingActionButton(
-                            text = { Text("공유") },
-                            icon = { Icon(painter = painterResource(id = R.drawable.qr_share),
-                                "QR공유"
-                                , modifier = Modifier.size(25.dp)) },
-                            onClick = { 
+                            text = { Text("QR공유") },
+                            icon = { Icon(painter = painterResource(id = R.drawable.qr_share), "QR공유", modifier = Modifier.size(25.dp)) },
+                            onClick = {
                                 showBirthdaySelectionDialog = true
-                                isFabMenuExpanded = false 
+                                isFabMenuExpanded = false
+                            }
+                        )
+                        ExtendedFloatingActionButton(
+                            text = { Text("달력공유") },
+                            icon = { Icon(painter = painterResource(id = R.drawable.calendar_share), "캘린더로 공유", modifier = Modifier.size(25.dp)) },
+                            onClick = {
+                                showCalendarShareDialog = true
+                                isFabMenuExpanded = false
                             }
                         )
                     }
@@ -417,7 +550,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                         showAddDialog = true
                                     }
                                 )
-                                
+
                                 DropdownMenuItem(
                                     text = { Text("수정") },
                                     onClick = {
@@ -428,7 +561,7 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
                                         context.startActivity(intent)
                                     }
                                 )
-                                
+
                                 DropdownMenuItem(
                                     text = { Text("삭제") },
                                     onClick = {
@@ -578,38 +711,100 @@ fun BirthDayFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? = n
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun BirthDayFragmentPreview() {
-    BirthDayFragment(scheduleUpdateTrigger = 0)
-}
+private suspend fun addEventsToCalendar(context: Context, anniversaries: List<Anniversary>, year: Int): Int {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+        return 0
+    }
 
-@Composable
-fun BirthdayQrCodeDialog(
-    json: String?,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("생일정보 공유") },
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (!json.isNullOrEmpty()) {
-                    QrCodeImage(data = json, size = 800) // Use a smaller size for the dialog
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("다른 핸드폰에서 QR 코드를 스캔하여 기념일 정보를 가져올 수 있습니다.")
-                } else {
-                    Text("기념일 정보가 없습니다.")
+    val calendarId = getPrimaryCalendarId(context)
+    if (calendarId == null) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "캘린더를 찾을 수 없습니다. 캘린더 앱에서 기본 캘린더를 설정해주세요.", Toast.LENGTH_LONG).show()
+        }
+        return 0
+    }
+
+    var successCount = 0
+    for (ann in anniversaries) {
+        val originalDate = ann.originDt
+        var newDate: LocalDate? = null
+
+        if (ann.schedule.calendarType == "음력") {
+            val apiConfig = Constants.API_CONFIGS["LUNAR"]
+            val retrofit = Retrofit.Builder()
+                .baseUrl(apiConfig!!.baseUrl)
+                .addConverterFactory(SimpleXmlConverterFactory.create())
+                .build()
+            val service = retrofit.create(LunarApiService::class.java)
+            try {
+                val response = service.getLunarDate(
+                    serviceKey = apiConfig.serviceKey,
+                    fromSolYear = year.toString(),
+                    toSolYear = year.toString(),
+                    lunMonth = String.format("%02d", originalDate.monthValue),
+                    lunDay = String.format("%02d", originalDate.dayOfMonth)
+                )
+                if (response.isSuccessful) {
+                    val lunarItem = response.body()?.body?.items?.itemList?.firstOrNull()
+                    if (lunarItem != null) {
+                        newDate = LocalDate.of(lunarItem.solYear, lunarItem.solMonth, lunarItem.solDay)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("AnniversaryFragment", "API Call Failed: ${e.message}")
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("닫기")
+        } else {
+            newDate = LocalDate.of(year, originalDate.month, originalDate.dayOfMonth)
+        }
+
+        if (newDate != null) {
+            val startTime = newDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+            val values = ContentValues().apply {
+                put(CalendarContract.Events.DTSTART, startTime)
+                put(CalendarContract.Events.DTEND, startTime)
+                put(CalendarContract.Events.TITLE, ann.schedule.title)
+                put(CalendarContract.Events.CALENDAR_ID, calendarId)
+                put(CalendarContract.Events.EVENT_TIMEZONE, "UTC")
+                put(CalendarContract.Events.ALL_DAY, 1)
+            }
+            context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+            successCount++
+        } else {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "${ann.schedule.title} 날짜 변환에 실패했습니다.", Toast.LENGTH_SHORT).show()
             }
         }
-    )
+    }
+    return successCount
+}
+
+private fun getPrimaryCalendarId(context: Context): Long? {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+        return null
+    }
+
+    val projection = arrayOf(CalendarContract.Calendars._ID)
+    val selection = "${CalendarContract.Calendars.VISIBLE} = 1 AND ${CalendarContract.Calendars.IS_PRIMARY} = 1"
+
+    context.contentResolver.query(CalendarContract.Calendars.CONTENT_URI, projection, selection, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            return cursor.getLong(0)
+        }
+    }
+
+    // If no primary, get the first visible calendar
+    val selection2 = "${CalendarContract.Calendars.VISIBLE} = 1"
+    context.contentResolver.query(CalendarContract.Calendars.CONTENT_URI, projection, selection2, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            return cursor.getLong(0)
+        }
+    }
+    return null
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AnniversaryFragmentPreview() {
+    AnniversaryFragment(scheduleUpdateTrigger = 0)
 }

@@ -76,8 +76,10 @@ class SettingsActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
+            Log.d(TAG, "WRITE_CALENDAR permission granted.")
             Toast.makeText(this, "Permission granted", Toast.LENGTH_SHORT).show()
         } else {
+            Log.d(TAG, "WRITE_CALENDAR permission denied.")
             Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
         }
     }
@@ -102,27 +104,43 @@ class SettingsActivity : ComponentActivity() {
                 this,
                 Manifest.permission.WRITE_CALENDAR
             ) == PackageManager.PERMISSION_GRANTED -> {
-                val calValues = ContentValues().apply {
-                    put(CalendarContract.Calendars.ACCOUNT_NAME, "com.ediapp.twocalendar")
-                    put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
-                    put(CalendarContract.Calendars.NAME, calendarName)
-                    put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, calendarName)
-                    put(CalendarContract.Calendars.CALENDAR_COLOR, 0x00FF00)
-                    put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CAL_ACCESS_OWNER)
-                    put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, ZoneId.systemDefault().id)
-                    put(CalendarContract.Calendars.SYNC_EVENTS, 1)
+                try {
+                    val calValues = ContentValues().apply {
+                        put(CalendarContract.Calendars.ACCOUNT_NAME, "com.ediapp.twocalendar")
+                        put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+                        put(CalendarContract.Calendars.NAME, calendarName)
+                        put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, calendarName)
+                        put(CalendarContract.Calendars.CALENDAR_COLOR, 0xFF00FF00.toInt()) // Opaque green
+                        put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CAL_ACCESS_OWNER)
+                        put(CalendarContract.Calendars.OWNER_ACCOUNT, "com.ediapp.twocalendar")
+                        put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, ZoneId.systemDefault().id)
+                        put(CalendarContract.Calendars.SYNC_EVENTS, 1)
+                        put(CalendarContract.Calendars.VISIBLE, 1)
+                    }
+
+                    val uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+                        .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+                        .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, "com.ediapp.twocalendar")
+                        .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+                        .build()
+
+                    Log.d(TAG, "Attempting to create calendar: $calendarName")
+                    val resultUri = contentResolver.insert(uri, calValues)
+
+                    if (resultUri != null) {
+                        Log.d(TAG, "Calendar created successfully: $resultUri")
+                        Toast.makeText(this, "캘린더가 생성되었습니다.", Toast.LENGTH_LONG).show()
+                    } else {
+                        Log.e(TAG, "Failed to create calendar. resultUri is null.")
+                        Toast.makeText(this, "캘린더 생성에 실패했습니다.", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error creating calendar", e)
+                    Toast.makeText(this, "캘린더 생성 중 오류가 발생했습니다.", Toast.LENGTH_LONG).show()
                 }
-
-                val uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
-                    .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
-                    .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, "com.ediapp.twocalendar")
-                    .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
-                    .build()
-
-                val resultUri = contentResolver.insert(uri, calValues)
-                Toast.makeText(this, "Calendar created: $resultUri", Toast.LENGTH_LONG).show()
             }
             else -> {
+                Log.d(TAG, "Requesting WRITE_CALENDAR permission.")
                 requestPermissionLauncher.launch(Manifest.permission.WRITE_CALENDAR)
             }
         }
@@ -239,7 +257,7 @@ fun SettingsScreen(onBack: () -> Unit, createCalendar: (String) -> Unit) {
                 onShowDayOfYearChange = { showDayOfYear = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
-            GoogleCalendarSettings(createCalendar = createCalendar)
+//            GoogleCalendarSettings(createCalendar = createCalendar)
         }
     }
 }
@@ -360,7 +378,7 @@ fun ImportantDaySettings(
                 onExpandedChange = { expanded = !expanded },
             ) {
                 OutlinedTextField(
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
                     value = calculationMethod,
                     onValueChange = { },
