@@ -22,4 +22,5 @@
     <string name="calendar_type_solar">양력</string>
     <string name="calendar_type_lunar">음력</string>
     <string name="calendar_type_lunar_leap">음력(윤달)</string>
+    <string name="calendar_add_success_message">%1$d개의 기념일이 캘린더에 추가되었습니다. 캘린더에 반영은 약간의 시간이 걸립니다.</string>
 </resources>

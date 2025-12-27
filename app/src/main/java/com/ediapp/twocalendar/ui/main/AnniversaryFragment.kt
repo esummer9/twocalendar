@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +71,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -130,14 +134,16 @@ fun AnniversaryFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? 
             if (permissions[Manifest.permission.WRITE_CALENDAR] == true && permissions[Manifest.permission.READ_CALENDAR] == true) {
                 anniversariesToBulkAdd?.let { anniversaries ->
                     if (yearToBulkAdd != 0) {
-                        coroutineScope.launch {
+                        coroutineScope.launch(Dispatchers.IO) {
                             val successCount = addEventsToCalendar(context, anniversaries, yearToBulkAdd)
-                            if (successCount > 0) {
-                                calendarAddSuccessCount = successCount
-                                showCalendarAddSuccessDialog = true
+                            withContext(Dispatchers.Main) {
+                                if (successCount > 0) {
+                                    calendarAddSuccessCount = successCount
+                                    showCalendarAddSuccessDialog = true
+                                }
+                                anniversariesToBulkAdd = null
+                                yearToBulkAdd = 0
                             }
-                            anniversariesToBulkAdd = null
-                            yearToBulkAdd = 0
                         }
                     }
                 }
@@ -161,7 +167,7 @@ fun AnniversaryFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? 
         AlertDialog(
             onDismissRequest = { showCalendarAddSuccessDialog = false },
             title = { Text("알림") },
-            text = { Text("${calendarAddSuccessCount}개의 기념일이 캘린더에 추가되었습니다. 캘린더에 반영은 약간의 시간이 걸립니다.") },
+            text = { Text(stringResource(id = R.string.calendar_add_success_message, calendarAddSuccessCount)) },
             confirmButton = {
                 Button(onClick = { showCalendarAddSuccessDialog = false }) {
                     Text("확인")
@@ -206,11 +212,13 @@ fun AnniversaryFragment(modifier: Modifier = Modifier, selectedDate: LocalDate? 
                     val hasReadPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
                     if (hasWritePermission && hasReadPermission) {
-                        coroutineScope.launch {
+                        coroutineScope.launch(Dispatchers.IO) {
                             val successCount = addEventsToCalendar(context, selectedAnniversaries, year)
-                            if (successCount > 0) {
-                                calendarAddSuccessCount = successCount
-                                showCalendarAddSuccessDialog = true
+                            withContext(Dispatchers.Main) {
+                                if (successCount > 0) {
+                                    calendarAddSuccessCount = successCount
+                                    showCalendarAddSuccessDialog = true
+                                }
                             }
                         }
                     } else {
