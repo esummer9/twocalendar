@@ -236,52 +236,54 @@ fun TodayFragment(modifier: Modifier = Modifier) {
                 }
 
                 val importantDayCalculation = sharedPref.getString("important_day_calculation", "지난일수")
-                if(importantDayCalculation != "표시안함" ) {
+                if(importantDayCalculation != "표시안함" && !importantDayCalculation.equals("")) {
                     val importantDayDateString = sharedPref.getString("important_day_date", null)
                     val title = sharedPref.getString("important_day_title", "")
 
                     importantDayDateString?.let {
-                        val importantDate = LocalDate.parse(it)
-                        var diff: Long = 0
-                        var dDayText = ""
+                        if(it.isNotEmpty()) {
+                            val importantDate = LocalDate.parse(it)
+                            var diff: Long = 0
+                            var dDayText = ""
 
-//                        Log.d("ImportantDay", "importantDayCalculation: $importantDayCalculation $importantDate $today ")
+    //                        Log.d("ImportantDay", "importantDayCalculation: $importantDayCalculation $importantDate $today ")
 
-                        if(importantDate > today) {
-                            diff = ChronoUnit.DAYS.between(today, importantDate)
-                            dDayText = "$title ${-diff}"
-                        } else {
-                            dDayText = if (importantDayCalculation == "남은일수") {
+                            if(importantDate > today) {
+                                diff = ChronoUnit.DAYS.between(today, importantDate)
+                                dDayText = "$title ${-diff}"
+                            } else {
+                                dDayText = if (importantDayCalculation == "남은일수") {
 
-                                val targetMonthDay = MonthDay.of(importantDate.monthValue, importantDate.dayOfMonth)
-                                var nextOccurrence = targetMonthDay.atYear(today.year)
-                                while (nextOccurrence.isBefore(today)) {
-                                    nextOccurrence = nextOccurrence.plusYears(1)
-                                }
+                                    val targetMonthDay = MonthDay.of(importantDate.monthValue, importantDate.dayOfMonth)
+                                    var nextOccurrence = targetMonthDay.atYear(today.year)
+                                    while (nextOccurrence.isBefore(today)) {
+                                        nextOccurrence = nextOccurrence.plusYears(1)
+                                    }
 
-                                val diff = ChronoUnit.DAYS.between(today, nextOccurrence)
-//                                Log.d("ImportantDay", "nextOccurrence: $nextOccurrence $diff")
-                                when {
-                                    diff > 0 -> "$title -$diff"
-                                    diff < 0 -> "$title +${-diff}"
-                                    else -> "$title D-Day"
-                                }
-                            } else { // "지난일수"
-                                val diff = ChronoUnit.DAYS.between(importantDate, today)
-                                when {
-                                    diff > 0 -> "$title +$diff"
-                                    diff < 0 -> "$title -$diff"
-                                    else -> "$title D-Day"
+                                    val diff = ChronoUnit.DAYS.between(today, nextOccurrence)
+    //                                Log.d("ImportantDay", "nextOccurrence: $nextOccurrence $diff")
+                                    when {
+                                        diff > 0 -> "$title -$diff"
+                                        diff < 0 -> "$title +${-diff}"
+                                        else -> "$title D-Day"
+                                    }
+                                } else { // "지난일수"
+                                    val diff = ChronoUnit.DAYS.between(importantDate, today)
+                                    when {
+                                        diff > 0 -> "$title +$diff"
+                                        diff < 0 -> "$title -$diff"
+                                        else -> "$title D-Day"
+                                    }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = dDayText,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = dDayText,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
                 
